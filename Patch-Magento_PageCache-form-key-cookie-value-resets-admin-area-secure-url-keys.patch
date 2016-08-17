@@ -1,0 +1,30 @@
+--- /dev/null	2016-08-15 09:23:58.920000000 +0200
++++ etc/frontend/events.xml	2016-08-17 17:56:10.341091407 +0200
+@@ -0,0 +1,13 @@
++<?xml version="1.0"?>
++<!--
++/**
++ * Copyright © 2016 Magento. All rights reserved.
++ * See COPYING.txt for license details.
++ */
++-->
++<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
++    <event name="controller_action_predispatch">
++        <observer name="register_form_key"
++                  instance="Magento\PageCache\Observer\RegisterFormKeyFromCookie" />
++    </event>
++</config>
+--- etc/events.xml.org	2016-06-23 09:32:44.000000000 +0200
++++ etc/events.xml	2016-08-17 17:59:11.315582354 +0200
+@@ -48,11 +48,6 @@
+     <event name="model_save_commit_after">
+         <observer name="flush_cache_after_model_save" instance="Magento\PageCache\Observer\FlushCacheByTags" />
+     </event>
+-    <event name="controller_action_predispatch">
+-        <observer name="register_form_key"
+-                  instance="Magento\PageCache\Observer\RegisterFormKeyFromCookie"
+-                  />
+-    </event>
+     <event name="customer_logout">
+         <observer name="FlushFormKeyOnLogout" instance="Magento\PageCache\Observer\FlushFormKeyOnLogout"/>
+     </event>
