@@ -1,17 +1,5 @@
-From c5a09d4c7056176a282ced37c3a186a284ae2de0 Mon Sep 17 00:00:00 2001
-From: Bohdan Korablov <bkorablov@magento.com>
-Date: Mon, 13 Jun 2016 14:03:52 +0300
-Subject: [PATCH] MAGETWO-54223: [CMS Widgets] Catalog Category Link widget is
- not displayed when Anchor Text\Title is empty
-
----
- app/code/Magento/Catalog/Model/ResourceModel/AbstractResource.php | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/app/code/Magento/Catalog/Model/ResourceModel/AbstractResource.php b/app/code/Magento/Catalog/Model/ResourceModel/AbstractResource.php
-index 0a7f9c2..b754e17 100644
---- a/app/code/Magento/Catalog/Model/ResourceModel/AbstractResource.php
-+++ b/app/code/Magento/Catalog/Model/ResourceModel/AbstractResource.php
+--- Model/ResourceModel/AbstractResource.php
++++ Model/ResourceModel/AbstractResource.php
 @@ -502,7 +502,7 @@ abstract class AbstractResource extends \Magento\Eav\Model\Entity\AbstractEntity
                  $staticTable,
                  $staticAttributes
@@ -30,6 +18,3 @@ index 0a7f9c2..b754e17 100644
                          'e.' . $this->getLinkField() . ' = ' . 'default_value.' . $this->getLinkField(),
                          ''
                      )->where('default_value.attribute_id IN (?)', array_keys($_attributes))
--- 
-2.7.4
-
