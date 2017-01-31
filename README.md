@@ -26,11 +26,15 @@ you should have a M2 project that has composer.json at it's core that dicrates w
     "extra": {
         "patches": {
             "magento/module-catalog": {
-                "Fix: https://github.com/magento/magento2/issues/5438": "patches/Patch-Magento_Catalog-M2.1.0-image-attribute-backend-model-hardcoded-attribute-code-removal.patch"
+                "Fix: https://github.com/magento/magento2/issues/5438": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Catalog-M2.1.0-image-attribute-backend-model-hardcoded-attribute-code-removal.patch",
+                "Fix: https://github.com/magento/magento2/issues/6076": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Catalog-0001-MAGETWO-54223-CMS-Widgets-Catalog-Category-Link-widg.patch"
             },
             "magento/module-ui": {
-                "Fix: https://github.com/magento/magento2/issues/5438": "patches/Patch-Magento_Ui-M2.1.0-allow-backend-to-know-the-origin-input-of-the-upload-request.patch"
+                "Fix: https://github.com/magento/magento2/issues/5438": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Ui-M2.1.0-allow-backend-to-know-the-origin-input-of-the-upload-request.patch"
             },
+            "magento/magento2-base": {
+                "Fix: https://github.com/magento/magento2/issues/4232": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Base-0001-MAGETWO-52850-GitHub-UTF-8-special-character-issue-i.patch"
+            }
         }
     }
 
