@@ -27,7 +27,8 @@ you should have a M2 project that has composer.json at it's core that dicrates w
         "patches": {
             "magento/module-catalog": {
                 "Fix: https://github.com/magento/magento2/issues/5438": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Catalog-M2.1.0-image-attribute-backend-model-hardcoded-attribute-code-removal.patch",
-                "Fix: https://github.com/magento/magento2/issues/6076": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Catalog-0001-MAGETWO-54223-CMS-Widgets-Catalog-Category-Link-widg.patch"
+                "Fix: https://github.com/magento/magento2/issues/6076": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Catalog-0001-MAGETWO-54223-CMS-Widgets-Catalog-Category-Link-widg.patch",
+                "Fix: https://github.com/magento/magento2/issues/5931 and https://github.com/magento/magento2/issues/5612": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Catalog-M2.1.5-MAGETWO-56410-MAGETWO-56411-github-issues-5931-5612.patch"
             },
             "magento/module-ui": {
                 "Fix: https://github.com/magento/magento2/issues/5438": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Ui-M2.1.0-allow-backend-to-know-the-origin-input-of-the-upload-request.patch"
