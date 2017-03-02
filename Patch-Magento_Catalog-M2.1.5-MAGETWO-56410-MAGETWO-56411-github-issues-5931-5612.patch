@@ -542,3 +542,4 @@
 +           ko-checked="$data.isUseDefault">
 +    <label translate="'Use Default Value'" attr="for: $data.uid + '_default'" class="admin__field-label"></label>
 +</div>
+
