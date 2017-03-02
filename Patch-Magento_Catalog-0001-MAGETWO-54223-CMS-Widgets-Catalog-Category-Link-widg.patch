@@ -1,5 +1,5 @@
---- Model/ResourceModel/AbstractResource.php
-+++ Model/ResourceModel/AbstractResource.php
+--- a/Model/ResourceModel/AbstractResource.php
++++ b/Model/ResourceModel/AbstractResource.php
 @@ -502,7 +502,7 @@ abstract class AbstractResource extends \Magento\Eav\Model\Entity\AbstractEntity
                  $staticTable,
                  $staticAttributes

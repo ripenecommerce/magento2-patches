@@ -1,5 +1,5 @@
---- Controller/Adminhtml/Category/Save.php.org	2016-08-03 21:35:33.772109252 +0200
-+++ Controller/Adminhtml/Category/Save.php	2016-08-03 21:36:33.982229407 +0200
+--- a/Controller/Adminhtml/Category/Save.php.org	2016-08-03 21:35:33.772109252 +0200
++++ b/Controller/Adminhtml/Category/Save.php	2016-08-03 21:36:33.982229407 +0200
 @@ -6,6 +6,7 @@
  namespace Magento\Catalog\Controller\Adminhtml\Category;
 
@@ -110,8 +110,8 @@
      /**
       * Converting inputs from string to boolean
       *
---- Controller/Adminhtml/Category/Image/Upload.php.org	2016-08-01 20:36:22.014237780 +0200
-+++ Controller/Adminhtml/Category/Image/Upload.php	2016-08-01 20:36:25.292475257 +0200
+--- a/Controller/Adminhtml/Category/Image/Upload.php.org	2016-08-01 20:36:22.014237780 +0200
++++ b/Controller/Adminhtml/Category/Image/Upload.php	2016-08-01 20:36:25.292475257 +0200
 @@ -50,8 +50,10 @@
       */
      public function execute()
@@ -124,8 +124,8 @@
 
              $result['cookie'] = [
                  'name' => $this->_getSession()->getName(),
---- Model/Category/Attribute/Backend/Image.php.org	2016-08-03 21:36:05.695112561 +0200
-+++ Model/Category/Attribute/Backend/Image.php	2016-08-03 21:36:46.829828298 +0200
+--- a/Model/Category/Attribute/Backend/Image.php.org	2016-08-03 21:36:05.695112561 +0200
++++ b/Model/Category/Attribute/Backend/Image.php	2016-08-03 21:36:46.829828298 +0200
 @@ -13,6 +13,8 @@
 
  class Image extends \Magento\Eav\Model\Entity\Attribute\Backend\AbstractBackend
@@ -259,8 +259,8 @@
          return $this;
      }
  }
---- Model/Category/DataProvider.php.org	2016-08-01 21:35:43.567609510 +0200
-+++ Model/Category/DataProvider.php	2016-08-01 21:43:07.800993338 +0200
+--- a/Model/Category/DataProvider.php.org	2016-08-01 21:35:43.567609510 +0200
++++ b/Model/Category/DataProvider.php	2016-08-01 21:43:07.800993338 +0200
 @@ -203,14 +203,24 @@
          $category = $this->getCurrentCategory();
          if ($category) {
@@ -290,8 +290,8 @@
              $this->loadedData[$category->getId()] = $categoryData;
          }
          return $this->loadedData;
---- Model/Category.php.org	2016-08-01 21:41:47.535876208 +0200
-+++ Model/Category.php	2016-08-01 21:42:57.916422400 +0200
+--- a/Model/Category.php.org	2016-08-01 21:41:47.535876208 +0200
++++ b/Model/Category.php	2016-08-01 21:42:57.916422400 +0200
 @@ -652,14 +652,15 @@
      }
 
