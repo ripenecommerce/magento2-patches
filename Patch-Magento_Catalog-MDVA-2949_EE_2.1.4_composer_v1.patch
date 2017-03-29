@@ -1,7 +1,7 @@
-diff --git a/vendor/magento/module-catalog/Controller/Adminhtml/Product/Initialization/Helper.php b/vendor/magento/module-catalog/Controller/Adminhtml/Product/Initialization/Helper.php
+diff --git a/Controller/Adminhtml/Product/Initialization/Helper.php b/Controller/Adminhtml/Product/Initialization/Helper.php
 index 520d313..7fe15b9 100644
---- a/vendor/magento/module-catalog/Controller/Adminhtml/Product/Initialization/Helper.php
-+++ b/vendor/magento/module-catalog/Controller/Adminhtml/Product/Initialization/Helper.php
+--- a/Controller/Adminhtml/Product/Initialization/Helper.php
++++ b/Controller/Adminhtml/Product/Initialization/Helper.php
 @@ -199,14 +199,18 @@ class Helper
              $customOptions = [];
              foreach ($options as $customOptionData) {
@@ -116,10 +116,10 @@ index 520d313..7fe15b9 100644
          }
          return $this->productRepository;
      }
-diff --git a/vendor/magento/module-catalog/Model/Product/Option/Repository.php b/vendor/magento/module-catalog/Model/Product/Option/Repository.php
+diff --git a/Model/Product/Option/Repository.php b/Model/Product/Option/Repository.php
 index 3b3aa73..dc351d9 100644
---- a/vendor/magento/module-catalog/Model/Product/Option/Repository.php
-+++ b/vendor/magento/module-catalog/Model/Product/Option/Repository.php
+--- a/Model/Product/Option/Repository.php
++++ b/Model/Product/Option/Repository.php
 @@ -133,15 +133,57 @@ class Repository implements \Magento\Catalog\Api\ProductCustomOptionRepositoryIn
       */
      public function save(\Magento\Catalog\Api\Data\ProductCustomOptionInterface $option)
@@ -179,10 +179,10 @@ index 3b3aa73..dc351d9 100644
          return $option;
      }
  
-diff --git a/vendor/magento/module-catalog/Model/Product/Option/SaveHandler.php b/vendor/magento/module-catalog/Model/Product/Option/SaveHandler.php
+diff --git a/Model/Product/Option/SaveHandler.php b/Model/Product/Option/SaveHandler.php
 index 7c32232..6f3167a 100644
---- a/vendor/magento/module-catalog/Model/Product/Option/SaveHandler.php
-+++ b/vendor/magento/module-catalog/Model/Product/Option/SaveHandler.php
+--- a/Model/Product/Option/SaveHandler.php
++++ b/Model/Product/Option/SaveHandler.php
 @@ -20,7 +20,6 @@ class SaveHandler implements ExtensionInterface
  
      /**
@@ -235,10 +235,10 @@ index 7c32232..6f3167a 100644
          return $entity;
      }
  }
-diff --git a/vendor/magento/module-catalog/Model/Product/Option/Validator/Select.php b/vendor/magento/module-catalog/Model/Product/Option/Validator/Select.php
+diff --git a/Model/Product/Option/Validator/Select.php b/Model/Product/Option/Validator/Select.php
 index ba7103a..38215c8 100644
---- a/vendor/magento/module-catalog/Model/Product/Option/Validator/Select.php
-+++ b/vendor/magento/module-catalog/Model/Product/Option/Validator/Select.php
+--- a/Model/Product/Option/Validator/Select.php
++++ b/Model/Product/Option/Validator/Select.php
 @@ -51,6 +51,10 @@ class Select extends DefaultValidator
              $storeId = $option->getProduct()->getStoreId();
          }
@@ -250,10 +250,10 @@ index ba7103a..38215c8 100644
              $type = isset($value['price_type']) ? $value['price_type'] : null;
              $price = isset($value['price']) ? $value['price'] : null;
              $title = isset($value['title']) ? $value['title'] : null;
-diff --git a/vendor/magento/module-catalog/Model/Product/Option/Value.php b/vendor/magento/module-catalog/Model/Product/Option/Value.php
+diff --git a/Model/Product/Option/Value.php b/Model/Product/Option/Value.php
 index 7a71c67..056142e 100644
---- a/vendor/magento/module-catalog/Model/Product/Option/Value.php
-+++ b/vendor/magento/module-catalog/Model/Product/Option/Value.php
+--- a/Model/Product/Option/Value.php
++++ b/Model/Product/Option/Value.php
 @@ -200,7 +200,7 @@ class Value extends AbstractModel implements \Magento\Catalog\Api\Data\ProductCu
                  'store_id',
                  $this->getOption()->getStoreId()
@@ -263,10 +263,10 @@ index 7a71c67..056142e 100644
              if ($this->getData('is_delete') == '1') {
                  if ($this->getId()) {
                      $this->deleteValues($this->getId());
-diff --git a/vendor/magento/module-catalog/Model/ResourceModel/Product/Option.php b/vendor/magento/module-catalog/Model/ResourceModel/Product/Option.php
+diff --git a/Model/ResourceModel/Product/Option.php b/Model/ResourceModel/Product/Option.php
 index 3d123f2..00efc41 100644
---- a/vendor/magento/module-catalog/Model/ResourceModel/Product/Option.php
-+++ b/vendor/magento/module-catalog/Model/ResourceModel/Product/Option.php
+--- a/Model/ResourceModel/Product/Option.php
++++ b/Model/ResourceModel/Product/Option.php
 @@ -6,6 +6,7 @@
  namespace Magento\Catalog\Model\ResourceModel\Product;
  
@@ -403,10 +403,10 @@ index 3d123f2..00efc41 100644
          }
          return $this->metadataPool;
      }
-diff --git a/vendor/magento/module-catalog/Model/ResourceModel/Product/Option/Value.php b/vendor/magento/module-catalog/Model/ResourceModel/Product/Option/Value.php
+diff --git a/Model/ResourceModel/Product/Option/Value.php b/Model/ResourceModel/Product/Option/Value.php
 index 39a67f9..0ec4b03 100644
---- a/vendor/magento/module-catalog/Model/ResourceModel/Product/Option/Value.php
-+++ b/vendor/magento/module-catalog/Model/ResourceModel/Product/Option/Value.php
+--- a/Model/ResourceModel/Product/Option/Value.php
++++ b/Model/ResourceModel/Product/Option/Value.php
 @@ -231,6 +231,13 @@ class Value extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
              );
              $optionTypeId = $this->getConnection()->fetchOne($select);
@@ -421,10 +421,10 @@ index 39a67f9..0ec4b03 100644
              if ($object->getTitle()) {
                  if ($existInCurrentStore) {
                      if ($storeId == $object->getStoreId()) {
-diff --git a/vendor/magento/module-catalog/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php b/vendor/magento/module-catalog/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php
+diff --git a/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php b/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php
 index 7bf3205..02337fa 100755
---- a/vendor/magento/module-catalog/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php
-+++ b/vendor/magento/module-catalog/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php
+--- a/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php
++++ b/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php
 @@ -68,6 +68,7 @@ class CustomOptions extends AbstractModifier
      const FIELD_ENABLE = 'affect_product_custom_options';
      const FIELD_OPTION_ID = 'option_id';
@@ -520,11 +520,11 @@ index 7bf3205..02337fa 100755
                          static::FIELD_PRICE_NAME => $this->getPriceFieldConfig(20),
                          static::FIELD_PRICE_TYPE_NAME => $this->getPriceTypeFieldConfig(30, ['fit' => true]),
                          static::FIELD_SKU_NAME => $this->getSkuFieldConfig(40),
-diff --git a/vendor/magento/module-catalog/view/adminhtml/web/template/form/element/helper/custom-option-type-service.html b/vendor/magento/module-catalog/view/adminhtml/web/template/form/element/helper/custom-option-type-service.html
+diff --git a/view/adminhtml/web/template/form/element/helper/custom-option-type-service.html b/view/adminhtml/web/template/form/element/helper/custom-option-type-service.html
 new file mode 100644
 index 0000000..442d96b
 --- /dev/null
-+++ b/vendor/magento/module-catalog/view/adminhtml/web/template/form/element/helper/custom-option-type-service.html
++++ b/view/adminhtml/web/template/form/element/helper/custom-option-type-service.html
 @@ -0,0 +1,17 @@
 +<!--
 +/**
