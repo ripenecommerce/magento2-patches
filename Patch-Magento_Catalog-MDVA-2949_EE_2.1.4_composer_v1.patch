@@ -422,7 +422,7 @@ index 39a67f9..0ec4b03 100644
                  if ($existInCurrentStore) {
                      if ($storeId == $object->getStoreId()) {
 diff --git a/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php b/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php
-index 7bf3205..02337fa 100755
+index 7bf3205..02337fa 100644
 --- a/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php
 +++ b/Ui/DataProvider/Product/Form/Modifier/CustomOptions.php
 @@ -68,6 +68,7 @@ class CustomOptions extends AbstractModifier
