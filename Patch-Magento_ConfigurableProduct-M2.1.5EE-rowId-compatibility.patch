@@ -1,0 +1,39 @@
+From 85c3ca2565bf5dea20dd51dd1e38b5afb9049b08 Mon Sep 17 00:00:00 2001
+From: etessari <enrico@hevelop.com>
+Date: Fri, 31 Mar 2017 16:36:59 +0200
+Subject: [PATCH] patch commit
+
+---
+ Block/Product/View/Type/Configurable.php | 2 +-
+ Helper/Data.php                          | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Block/Product/View/Type/Configurable.php b/Block/Product/View/Type/Configurable.php
+index 33ac01f..0cd4552 100644
+--- a/Block/Product/View/Type/Configurable.php
++++ b/Block/Product/View/Type/Configurable.php
+@@ -216,7 +216,7 @@ class Configurable extends \Magento\Catalog\Block\Product\View\AbstractView
+         foreach ($this->getAllowProducts() as $product) {
+             $priceInfo = $product->getPriceInfo();
+ 
+-            $prices[$product->getId()] =
++            $prices[$product->getRowId()] =
+                 [
+                     'oldPrice' => [
+                         'amount' => $this->_registerJsPrice(
+diff --git a/Helper/Data.php b/Helper/Data.php
+index f7790ce..0ea29be 100644
+--- a/Helper/Data.php
++++ b/Helper/Data.php
+@@ -79,7 +79,7 @@ class Data
+     {
+         $options = [];
+         foreach ($allowedProducts as $product) {
+-            $productId = $product->getId();
++            $productId = $product->getRowId();
+             $images = $this->getGalleryImages($product);
+             if ($images) {
+                 foreach ($images as $image) {
+-- 
+2.8.1
+
