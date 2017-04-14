@@ -1,0 +1,29 @@
+{
+    "name": "ripenecommerce/magento2-patches",
+    "description": "Patches intended to be used with cweagans/composer-patches",
+    "require": {
+        "cweagans/composer-patches": "^1.6"
+    },
+    "authors": [
+        {
+            "name": "Scott Buchanan",
+            "email": "sbuchanan@ri.pn"
+        },
+        {
+            "name": "Enrico Tessari",
+            "email": "enrico@hevelop.com"
+        },
+        {
+            "name": "Matteo Manfrin",
+            "email": "matteo@hevelop.com "
+        },
+        {
+            "name": "Simone Marcato",
+            "email": "simone@hevelop.com"
+        },
+        {
+            "name": "Allan Paiste",
+            "email": "allan.paiste@vaimo.com"
+        }
+    ]
+}
