@@ -425,15 +425,6 @@
      /**#@-*/
 
      /**#@+
-@@ -112,7 +114,7 @@ class CustomOptions extends AbstractModifier
-      * @var UrlInterface
-      */
-     protected $urlBuilder;
--
-+
-     /**
-      * @var ArrayManager
-      */
 @@ -162,9 +164,15 @@ class CustomOptions extends AbstractModifier
 
          /** @var \Magento\Catalog\Model\Product\Option $option */
