@@ -1,38 +1,33 @@
 --- a/Controller/Adminhtml/Product/Initialization/Helper.php
 +++ b/Controller/Adminhtml/Product/Initialization/Helper.php
-@@ -199,14 +199,18 @@ class Helper
+@@ -199,6 +199,9 @@ class Helper
              $customOptions = [];
              foreach ($options as $customOptionData) {
                  if (empty($customOptionData['is_delete'])) {
 +                    if (empty($customOptionData['option_id'])) {
 +                        $customOptionData['option_id'] = null;
 +                    }
-+
                      if (isset($customOptionData['values'])) {
                          $customOptionData['values'] = array_filter($customOptionData['values'], function ($valueData) {
                              return empty($valueData['is_delete']);
-                         });
+@@ -206,7 +209,6 @@ class Helper
                      }
-+
                      $customOption = $this->getCustomOptionFactory()->create(['data' => $customOptionData]);
                      $customOption->setProductSku($product->getSku());
 -                    $customOption->setOptionId(null);
                      $customOptions[] = $customOption;
                  }
              }
-@@ -315,21 +319,59 @@ class Helper
-             return $productOptions;
-         }
-
--        foreach ($productOptions as $index => $option) {
-+        foreach ($productOptions as $optionIndex => $option) {
+@@ -317,19 +319,57 @@ class Helper
+ 
+         foreach ($productOptions as $index => $option) {
              $optionId = $option['option_id'];
 +            $option = $this->overwriteValue(
 +                $optionId,
 +                $option,
 +                $overwriteOptions
 +            );
-
+ 
 -            if (!isset($overwriteOptions[$optionId])) {
 -                continue;
 +            if (isset($option['values']) && isset($overwriteOptions[$optionId]['values'])) {
@@ -49,8 +44,8 @@
 +                    }
 +                }
              }
-
-+            $productOptions[$optionIndex] = $option;
+ 
++            $productOptions[$index] = $option;
 +        }
 +
 +        return $productOptions;
@@ -79,60 +74,17 @@
                  }
              }
          }
-
+ 
 -        return $productOptions;
 +        return $option;
      }
-
+ 
      /**
-@@ -339,8 +381,9 @@ class Helper
-     {
-         if (null === $this->customOptionFactory) {
-             $this->customOptionFactory = \Magento\Framework\App\ObjectManager::getInstance()
--                ->get('Magento\Catalog\Api\Data\ProductCustomOptionInterfaceFactory');
-+                ->get(\Magento\Catalog\Api\Data\ProductCustomOptionInterfaceFactory::class);
-         }
-+
-         return $this->customOptionFactory;
-     }
-
-@@ -351,7 +394,7 @@ class Helper
-     {
-         if (null === $this->productLinkFactory) {
-             $this->productLinkFactory = \Magento\Framework\App\ObjectManager::getInstance()
--                ->get('Magento\Catalog\Api\Data\ProductLinkInterfaceFactory');
-+                ->get(\Magento\Catalog\Api\Data\ProductLinkInterfaceFactory::class);
-         }
-         return $this->productLinkFactory;
-     }
-@@ -363,7 +406,7 @@ class Helper
-     {
-         if (null === $this->productRepository) {
-             $this->productRepository = \Magento\Framework\App\ObjectManager::getInstance()
--                ->get('Magento\Catalog\Api\ProductRepositoryInterface\Proxy');
-+                ->get(\Magento\Catalog\Api\ProductRepositoryInterface\Proxy::class);
-         }
-         return $this->productRepository;
-     }
 --- a/Model/Product/Option/Repository.php
 +++ b/Model/Product/Option/Repository.php
-@@ -133,15 +133,57 @@ class Repository implements \Magento\Catalog\Api\ProductCustomOptionRepositoryIn
-      */
-     public function save(\Magento\Catalog\Api\Data\ProductCustomOptionInterface $option)
-     {
-+        /** @var string $productSku */
-         $productSku = $option->getProductSku();
-+
-         if (!$productSku) {
-             throw new CouldNotSaveException(__('ProductSku should be specified'));
-         }
-+
-+        /** @var \Magento\Catalog\Model\Product $product */
+@@ -140,7 +140,41 @@ class Repository implements \Magento\Catalog\Api\ProductCustomOptionRepositoryIn
          $product = $this->productRepository->get($productSku);
-+
-+        /** @var \Magento\Framework\EntityManager\EntityMetadataInterface $metadata */
          $metadata = $this->getMetadataPool()->getMetadata(ProductInterface::class);
-+
          $option->setData('product_id', $product->getData($metadata->getLinkField()));
 -        $option->setOptionId(null);
 +        $option->setData('store_id', $product->getStoreId());
@@ -171,29 +123,11 @@
 +        }
 +
          $option->save();
-+
          return $option;
      }
-
 --- a/Model/Product/Option/SaveHandler.php
 +++ b/Model/Product/Option/SaveHandler.php
-@@ -20,7 +20,6 @@ class SaveHandler implements ExtensionInterface
-
-     /**
-      * @param OptionRepository $optionRepository
--     * @param MetadataPool $metadataPool
-      */
-     public function __construct(
-         OptionRepository $optionRepository
-@@ -30,21 +29,39 @@ class SaveHandler implements ExtensionInterface
-
-     /**
-      * @param object $entity
--     * @param array $arguments
-+     * @param array  $arguments
-+     *
-      * @return \Magento\Catalog\Api\Data\ProductInterface|object
-      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+@@ -36,12 +36,28 @@ class SaveHandler implements ExtensionInterface
       */
      public function execute($entity, $arguments = [])
      {
@@ -225,10 +159,6 @@
                  $this->optionRepository->save($option);
              }
          }
-+
-         return $entity;
-     }
- }
 --- a/Model/Product/Option/Validator/Select.php
 +++ b/Model/Product/Option/Validator/Select.php
 @@ -51,6 +51,10 @@ class Select extends DefaultValidator
@@ -244,153 +174,55 @@
              $title = isset($value['title']) ? $value['title'] : null;
 --- a/Model/Product/Option/Value.php
 +++ b/Model/Product/Option/Value.php
-@@ -200,7 +200,7 @@ class Value extends AbstractModel implements \Magento\Catalog\Api\Data\ProductCu
+@@ -200,7 +200,6 @@ class Value extends AbstractModel implements \Magento\Catalog\Api\Data\ProductCu
                  'store_id',
                  $this->getOption()->getStoreId()
              );
 -            $this->unsetData('option_type_id');
-+
              if ($this->getData('is_delete') == '1') {
                  if ($this->getId()) {
                      $this->deleteValues($this->getId());
 --- a/Model/ResourceModel/Product/Option.php
 +++ b/Model/ResourceModel/Product/Option.php
-@@ -6,6 +6,7 @@
- namespace Magento\Catalog\Model\ResourceModel\Product;
-
- use Magento\Catalog\Api\Data\ProductInterface;
-+use Magento\Store\Model\Store;
-
- /**
-  * Catalog product custom option resource model
-@@ -122,7 +123,7 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-                     $object->getId()
-                 )->where(
-                     'store_id = ?',
--                    \Magento\Store\Model\Store::DEFAULT_STORE_ID
-+                    Store::DEFAULT_STORE_ID
-                 );
-                 $optionId = $connection->fetchOne($statement);
-
-@@ -139,7 +140,7 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-                         $data,
-                         [
-                             'option_id = ?' => $object->getId(),
--                            'store_id  = ?' => \Magento\Store\Model\Store::DEFAULT_STORE_ID
-+                            'store_id  = ?' => Store::DEFAULT_STORE_ID
-                         ]
-                     );
-                 } else {
-@@ -147,7 +148,7 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-                         new \Magento\Framework\DataObject(
-                             [
-                                 'option_id' => $object->getId(),
--                                'store_id' => \Magento\Store\Model\Store::DEFAULT_STORE_ID,
-+                                'store_id' => Store::DEFAULT_STORE_ID,
-                                 'price' => $object->getPrice(),
-                                 'price_type' => $object->getPriceType(),
-                             ]
-@@ -159,11 +160,11 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-             }
-
-             $scope = (int)$this->_config->getValue(
--                \Magento\Store\Model\Store::XML_PATH_PRICE_SCOPE,
-+                Store::XML_PATH_PRICE_SCOPE,
-                 \Magento\Store\Model\ScopeInterface::SCOPE_STORE
-             );
-
--            if ($object->getStoreId() != '0' && $scope == \Magento\Store\Model\Store::PRICE_SCOPE_WEBSITE) {
-+            if ($object->getStoreId() != '0' && $scope == Store::PRICE_SCOPE_WEBSITE) {
-                 $baseCurrency = $this->_config->getValue(
-                     \Magento\Directory\Model\Currency::XML_PATH_CURRENCY_BASE,
-                     'default'
-@@ -222,7 +223,7 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-                         }
-                     }
-                 }
--            } elseif ($scope == \Magento\Store\Model\Store::PRICE_SCOPE_WEBSITE && $object->getData('scope', 'price')
-+            } elseif ($scope == Store::PRICE_SCOPE_WEBSITE && $object->getData('scope', 'price')
-             ) {
-                 $connection->delete(
-                     $priceTable,
-@@ -245,16 +246,19 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-     {
-         $connection = $this->getConnection();
+@@ -247,14 +247,17 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
          $titleTableName = $this->getTable('catalog_product_option_title');
--        foreach ([\Magento\Store\Model\Store::DEFAULT_STORE_ID, $object->getStoreId()] as $storeId) {
-+        foreach ([Store::DEFAULT_STORE_ID, $object->getStoreId()] as $storeId) {
+         foreach ([\Magento\Store\Model\Store::DEFAULT_STORE_ID, $object->getStoreId()] as $storeId) {
              $existInCurrentStore = $this->getColFromOptionTable($titleTableName, (int)$object->getId(), (int)$storeId);
 -            $existInDefaultStore = $this->getColFromOptionTable(
 -                $titleTableName,
 -                (int)$object->getId(),
 -                \Magento\Store\Model\Store::DEFAULT_STORE_ID
 -            );
-+            $existInDefaultStore = (int)$storeId == Store::DEFAULT_STORE_ID ?
++            $existInDefaultStore = (int)$storeId == \Magento\Store\Model\Store::DEFAULT_STORE_ID ?
 +                $existInCurrentStore :
-+                $this->getColFromOptionTable($titleTableName, (int)$object->getId(), Store::DEFAULT_STORE_ID);
++                $this->getColFromOptionTable($titleTableName, (int)$object->getId(), \Magento\Store\Model\Store::DEFAULT_STORE_ID);
 +
              if ($object->getTitle()) {
 +                $isDeleteStoreTitle = (bool)$object->getData('is_delete_store_title');
                  if ($existInCurrentStore) {
 -                    if ($object->getStoreId() == $storeId) {
-+                    if ($isDeleteStoreTitle && (int)$storeId != Store::DEFAULT_STORE_ID) {
++                    if ($isDeleteStoreTitle && (int)$storeId != \Magento\Store\Model\Store::DEFAULT_STORE_ID) {
 +                        $connection->delete($titleTableName, ['option_title_id = ?' => $existInCurrentStore]);
 +
 +                    } elseif ($object->getStoreId() == $storeId) {
                          $data = $this->_prepareDataForTable(
                              new \Magento\Framework\DataObject(['title' => $object->getTitle()]),
                              $titleTableName
-@@ -270,8 +274,12 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
+@@ -270,8 +273,12 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
                      }
                  } else {
                      // we should insert record into not default store only of if it does not exist in default store
 -                    if (($storeId == \Magento\Store\Model\Store::DEFAULT_STORE_ID && !$existInDefaultStore)
 -                        || ($storeId != \Magento\Store\Model\Store::DEFAULT_STORE_ID && !$existInCurrentStore)
-+                    if (($storeId == Store::DEFAULT_STORE_ID && !$existInDefaultStore) ||
++                    if (($storeId == \Magento\Store\Model\Store::DEFAULT_STORE_ID && !$existInDefaultStore) ||
 +                        (
-+                            $storeId != Store::DEFAULT_STORE_ID &&
++                            $storeId != \Magento\Store\Model\Store::DEFAULT_STORE_ID &&
 +                            !$existInCurrentStore &&
 +                            !$isDeleteStoreTitle
 +                        )
                      ) {
                          $data = $this->_prepareDataForTable(
                              new \Magento\Framework\DataObject(
-@@ -287,7 +295,7 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-                     }
-                 }
-             } else {
--                if ($object->getId() && $object->getStoreId() > \Magento\Store\Model\Store::DEFAULT_STORE_ID
-+                if ($object->getId() && $object->getStoreId() > Store::DEFAULT_STORE_ID
-                     && $storeId
-                 ) {
-                     $connection->delete(
-@@ -466,7 +474,7 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-                 'option_title_default.option_id=product_option.option_id',
-                 $connection->quoteInto(
-                     'option_title_default.store_id = ?',
--                    \Magento\Store\Model\Store::DEFAULT_STORE_ID
-+                    Store::DEFAULT_STORE_ID
-                 )
-             ]
-         );
-@@ -513,7 +521,7 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-                 'option_title_default.option_type_id=option_type.option_type_id',
-                 $connection->quoteInto(
-                     'option_title_default.store_id = ?',
--                    \Magento\Store\Model\Store::DEFAULT_STORE_ID
-+                    Store::DEFAULT_STORE_ID
-                 )
-             ]
-         );
-@@ -567,7 +575,7 @@ class Option extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
-     {
-         if (null === $this->metadataPool) {
-             $this->metadataPool = \Magento\Framework\App\ObjectManager::getInstance()
--                ->get('Magento\Framework\EntityManager\MetadataPool');
-+                ->get(\Magento\Framework\EntityManager\MetadataPool::class);
-         }
-         return $this->metadataPool;
-     }
 --- a/Model/ResourceModel/Product/Option/Value.php
 +++ b/Model/ResourceModel/Product/Option/Value.php
 @@ -231,6 +231,13 @@ class Value extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
@@ -423,10 +255,10 @@
      const FIELD_IS_DELETE = 'is_delete';
 +    const FIELD_IS_USE_DEFAULT = 'is_use_default';
      /**#@-*/
-
+ 
      /**#@+
 @@ -162,9 +164,15 @@ class CustomOptions extends AbstractModifier
-
+ 
          /** @var \Magento\Catalog\Model\Product\Option $option */
          foreach ($productOptions as $index => $option) {
 -            $options[$index] = $this->formatPriceByPath(static::FIELD_PRICE_NAME, $option->getData());
@@ -434,7 +266,7 @@
 +            $optionData[static::FIELD_IS_USE_DEFAULT] = !$option->getData(static::FIELD_STORE_TITLE_NAME);
 +            $options[$index] = $this->formatPriceByPath(static::FIELD_PRICE_NAME, $optionData);
              $values = $option->getValues() ?: [];
-
+ 
 +            foreach ($values as $value) {
 +                $value->setData(static::FIELD_IS_USE_DEFAULT, !$value->getData(static::FIELD_STORE_TITLE_NAME));
 +            }
@@ -504,15 +336,6 @@
                          static::FIELD_PRICE_NAME => $this->getPriceFieldConfig(20),
                          static::FIELD_PRICE_TYPE_NAME => $this->getPriceTypeFieldConfig(30, ['fit' => true]),
                          static::FIELD_SKU_NAME => $this->getSkuFieldConfig(40),
-@@ -1090,7 +1119,7 @@ class CustomOptions extends AbstractModifier
-         }
-         return $this->localeCurrency;
-     }
--
-+
-     /**
-      * Format price according to the locale of the currency
-      *
 --- /dev/null
 +++ b/view/adminhtml/web/template/form/element/helper/custom-option-type-service.html
 @@ -0,0 +1,17 @@
