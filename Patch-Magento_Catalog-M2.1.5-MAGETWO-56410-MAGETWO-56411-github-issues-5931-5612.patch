@@ -89,7 +89,7 @@
 -        $option->setOptionId(null);
 +        $option->setData('store_id', $product->getStoreId());
 +
-+        if ($option->getOptionId()) {
++        if ($option->getOptionId() && ! $option->getIsDelete()) {
 +
 +            $options = $product->getOptions();
 +
