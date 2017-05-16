@@ -1,0 +1,829 @@
+From ee060289d03863f632341554015a41b1b75b0c4a Mon Sep 17 00:00:00 2001
+From: Pieter Hoste <hoste.pieter@gmail.com>
+Date: Sun, 23 Apr 2017 10:24:32 +0200
+Subject: [PATCH] Backport of MAGETWO-59685 for Magento 2.1 - Checkout pages
+ very slow due to pulling in JSON config, remove unneeded region definitions
+ from the checkout page. #6997 #4868
+
+---
+ .../Checkout/Block/Cart/LayoutProcessor.php        |  11 +-
+ .../Checkout/Block/Checkout/AttributeMerger.php    |  14 +-
+ .../Block/Checkout/DirectoryDataProcessor.php      | 146 +++++++++++++++++++++
+ .../Checkout/Block/Checkout/LayoutProcessor.php    |  74 +++++++++++
+ .../Test/Unit/Block/Cart/LayoutProcessorTest.php   |   9 +-
+ .../Block/Checkout/DirectoryDataProcessorTest.php  | 114 ++++++++++++++++
+ .../Unit/Block/Checkout/LayoutProcessorTest.php    |  10 ++
+ app/code/Magento/Checkout/etc/frontend/di.xml      |   1 +
+ .../Model/ResourceModel/Region/Collection.php      |  47 +++++++
+ .../Model/ResourceModel/Region/CollectionTest.php  |  34 ++++-
+ .../Ui/view/base/web/js/form/element/select.js     |  46 +++----
+ .../Magento/Ui/base/js/form/element/select.test.js |   2 +-
+ 12 files changed, 470 insertions(+), 38 deletions(-)
+ create mode 100644 app/code/Magento/Checkout/Block/Checkout/DirectoryDataProcessor.php
+ create mode 100644 app/code/Magento/Checkout/Test/Unit/Block/Checkout/DirectoryDataProcessorTest.php
+
+diff --git a/app/code/Magento/Checkout/Block/Cart/LayoutProcessor.php b/app/code/Magento/Checkout/Block/Cart/LayoutProcessor.php
+index cc8de0e..2c22b8b 100644
+--- a/app/code/Magento/Checkout/Block/Cart/LayoutProcessor.php
++++ b/app/code/Magento/Checkout/Block/Cart/LayoutProcessor.php
+@@ -85,14 +85,14 @@ public function process($jsLayout)
+                 'visible' => true,
+                 'formElement' => 'select',
+                 'label' => __('Country'),
+-                'options' => $this->countryCollection->loadByStore()->toOptionArray(),
++                'options' => [],
+                 'value' => null
+             ],
+             'region_id' => [
+                 'visible' => true,
+                 'formElement' => 'select',
+                 'label' => __('State/Province'),
+-                'options' => $this->regionCollection->load()->toOptionArray(),
++                'options' => [],
+                 'value' => null
+             ],
+             'postcode' => [
+@@ -103,6 +103,13 @@ public function process($jsLayout)
+             ]
+         ];
+ 
++        if (!isset($jsLayout['components']['checkoutProvider']['dictionaries'])) {
++            $jsLayout['components']['checkoutProvider']['dictionaries'] = [
++                'country_id' => $this->countryCollection->loadByStore()->toOptionArray(),
++                'region_id' => $this->regionCollection->addAllowedCountriesFilter()->toOptionArray(),
++            ];
++        }
++
+         if (isset($jsLayout['components']['block-summary']['children']['block-shipping']['children']
+             ['address-fieldsets']['children'])
+         ) {
+diff --git a/app/code/Magento/Checkout/Block/Checkout/AttributeMerger.php b/app/code/Magento/Checkout/Block/Checkout/AttributeMerger.php
+index bda375e..1e04df6 100644
+--- a/app/code/Magento/Checkout/Block/Checkout/AttributeMerger.php
++++ b/app/code/Magento/Checkout/Block/Checkout/AttributeMerger.php
+@@ -191,6 +191,15 @@ protected function getFieldConfig(
+             'visible' => isset($additionalConfig['visible']) ? $additionalConfig['visible'] : true,
+         ];
+ 
++        if ($attributeCode === 'region_id' || $attributeCode === 'country_id') {
++            unset($element['options']);
++            $element['deps'] = [$providerName];
++            $element['imports'] = [
++                'initialOptions' => 'index = ' . $providerName . ':dictionaries.' . $attributeCode,
++                'setOptions' => 'index = ' . $providerName . ':dictionaries.' . $attributeCode
++            ];
++        }
++
+         if (isset($attributeConfig['value']) && $attributeConfig['value'] != null) {
+             $element['value'] = $attributeConfig['value'];
+         } elseif (isset($attributeConfig['default']) && $attributeConfig['default'] != null) {
+@@ -340,11 +349,11 @@ protected function getCustomer()
+      * @param string $attributeCode
+      * @param array $attributeConfig
+      * @return array
++     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+      */
+     protected function getFieldOptions($attributeCode, array $attributeConfig)
+     {
+-        $options = isset($attributeConfig['options']) ? $attributeConfig['options'] : [];
+-        return ($attributeCode == 'country_id') ? $this->orderCountryOptions($options) : $options;
++        return isset($attributeConfig['options']) ? $attributeConfig['options'] : [];
+     }
+ 
+     /**
+@@ -352,6 +361,7 @@ protected function getFieldOptions($attributeCode, array $attributeConfig)
+      *
+      * @param array $countryOptions
+      * @return array
++     * @deprecated
+      */
+     protected function orderCountryOptions(array $countryOptions)
+     {
+diff --git a/app/code/Magento/Checkout/Block/Checkout/DirectoryDataProcessor.php b/app/code/Magento/Checkout/Block/Checkout/DirectoryDataProcessor.php
+new file mode 100644
+index 0000000..18a7b4d
+--- /dev/null
++++ b/app/code/Magento/Checkout/Block/Checkout/DirectoryDataProcessor.php
+@@ -0,0 +1,146 @@
++<?php
++/**
++ * Copyright © 2013-2017 Magento, Inc. All rights reserved.
++ * See COPYING.txt for license details.
++ */
++namespace Magento\Checkout\Block\Checkout;
++
++use Magento\Directory\Helper\Data as DirectoryHelper;
++use Magento\Store\Api\StoreResolverInterface;
++
++/**
++ * Directory data processor.
++ *
++ * This class adds various country and region dictionaries to checkout page.
++ * This data can be used by other UI components during checkout flow.
++ */
++class DirectoryDataProcessor implements \Magento\Checkout\Block\Checkout\LayoutProcessorInterface
++{
++    /**
++     * @var array
++     */
++    private $countryOptions;
++
++    /**
++     * @var array
++     */
++    private $regionOptions;
++
++    /**
++     * @var \Magento\Directory\Model\ResourceModel\Region\CollectionFactory
++     */
++    private $regionCollectionFactory;
++
++    /**
++     * @var \Magento\Directory\Model\ResourceModel\Region\CollectionFactory
++     */
++    private $countryCollectionFactory;
++
++    /**
++     * @var StoreResolverInterface
++     */
++    private $storeResolver;
++
++    /**
++     * @var DirectoryHelper
++     */
++    private $directoryHelper;
++
++    /**
++     * @param \Magento\Directory\Model\ResourceModel\Country\CollectionFactory $countryCollection
++     * @param \Magento\Directory\Model\ResourceModel\Region\CollectionFactory $regionCollection
++     * @param StoreResolverInterface $storeResolver
++     * @param DirectoryHelper $directoryHelper
++     */
++    public function __construct(
++        \Magento\Directory\Model\ResourceModel\Country\CollectionFactory $countryCollection,
++        \Magento\Directory\Model\ResourceModel\Region\CollectionFactory $regionCollection,
++        StoreResolverInterface $storeResolver,
++        DirectoryHelper $directoryHelper
++    ) {
++        $this->countryCollectionFactory = $countryCollection;
++        $this->regionCollectionFactory = $regionCollection;
++        $this->storeResolver = $storeResolver;
++        $this->directoryHelper = $directoryHelper;
++    }
++
++    /**
++     * Process js Layout of block
++     *
++     * @param array $jsLayout
++     * @return array
++     */
++    public function process($jsLayout)
++    {
++        if (!isset($jsLayout['components']['checkoutProvider']['dictionaries'])) {
++            $jsLayout['components']['checkoutProvider']['dictionaries'] = [
++                'country_id' => $this->getCountryOptions(),
++                'region_id' => $this->getRegionOptions(),
++            ];
++        }
++
++        return $jsLayout;
++    }
++
++    /**
++     * Get country options list.
++     *
++     * @return array
++     */
++    private function getCountryOptions()
++    {
++        if (!isset($this->countryOptions)) {
++            $this->countryOptions = $this->countryCollectionFactory->create()->loadByStore(
++                $this->storeResolver->getCurrentStoreId()
++            )->toOptionArray();
++            $this->countryOptions = $this->orderCountryOptions($this->countryOptions);
++        }
++
++        return $this->countryOptions;
++    }
++
++    /**
++     * Get region options list.
++     *
++     * @return array
++     */
++    private function getRegionOptions()
++    {
++        if (!isset($this->regionOptions)) {
++            $this->regionOptions = $this->regionCollectionFactory->create()->addAllowedCountriesFilter(
++                $this->storeResolver->getCurrentStoreId()
++            )->toOptionArray();
++        }
++
++        return $this->regionOptions;
++    }
++
++    /**
++     * Sort country options by top country codes.
++     *
++     * @param array $countryOptions
++     * @return array
++     */
++    private function orderCountryOptions(array $countryOptions)
++    {
++        $topCountryCodes = $this->directoryHelper->getTopCountryCodes();
++        if (empty($topCountryCodes)) {
++            return $countryOptions;
++        }
++
++        $headOptions = [];
++        $tailOptions = [[
++            'value' => 'delimiter',
++            'label' => '──────────',
++            'disabled' => true,
++        ]];
++        foreach ($countryOptions as $countryOption) {
++            if (empty($countryOption['value']) || in_array($countryOption['value'], $topCountryCodes)) {
++                array_push($headOptions, $countryOption);
++            } else {
++                array_push($tailOptions, $countryOption);
++            }
++        }
++        return array_merge($headOptions, $tailOptions);
++    }
++}
+diff --git a/app/code/Magento/Checkout/Block/Checkout/LayoutProcessor.php b/app/code/Magento/Checkout/Block/Checkout/LayoutProcessor.php
+index f6a37dc..e418321 100644
+--- a/app/code/Magento/Checkout/Block/Checkout/LayoutProcessor.php
++++ b/app/code/Magento/Checkout/Block/Checkout/LayoutProcessor.php
+@@ -7,7 +7,11 @@
+ 
+ use Magento\Checkout\Helper\Data;
+ use Magento\Framework\App\ObjectManager;
++use Magento\Store\Api\StoreResolverInterface;
+ 
++/**
++ * Class LayoutProcessor
++ */
+ class LayoutProcessor implements \Magento\Checkout\Block\Checkout\LayoutProcessorInterface
+ {
+     /**
+@@ -36,6 +40,16 @@ class LayoutProcessor implements \Magento\Checkout\Block\Checkout\LayoutProcesso
+     private $checkoutDataHelper;
+ 
+     /**
++     * @var StoreResolverInterface
++     */
++    private $storeResolver;
++
++    /**
++     * @var \Magento\Shipping\Model\Config
++     */
++    private $shippingConfig;
++
++    /**
+      * @param \Magento\Customer\Model\AttributeMetadataDataProvider $attributeMetadataDataProvider
+      * @param \Magento\Ui\Component\Form\AttributeMapper $attributeMapper
+      * @param AttributeMerger $merger
+@@ -146,6 +160,16 @@ public function process($jsLayout)
+                 $elements
+             );
+         }
++        if (isset($jsLayout['components']['checkout']['children']['steps']['children']['shipping-step']['children']
++            ['step-config']['children']['shipping-rates-validation']['children']
++        )) {
++            $jsLayout['components']['checkout']['children']['steps']['children']['shipping-step']['children']
++            ['step-config']['children']['shipping-rates-validation']['children'] =
++                $this->processShippingChildrenComponents(
++                    $jsLayout['components']['checkout']['children']['steps']['children']['shipping-step']['children']
++                    ['step-config']['children']['shipping-rates-validation']['children']
++                );
++        }
+ 
+         if (isset($jsLayout['components']['checkout']['children']['steps']['children']['shipping-step']
+             ['children']['shippingAddress']['children']['shipping-address-fieldset']['children']
+@@ -164,6 +188,26 @@ public function process($jsLayout)
+     }
+ 
+     /**
++     * Process shipping configuration to exclude inactive carriers.
++     *
++     * @param array $shippingRatesLayout
++     * @return array
++     */
++    private function processShippingChildrenComponents($shippingRatesLayout)
++    {
++        $activeCarriers = $this->getShippingConfig()->getActiveCarriers(
++            $this->getStoreResolver()->getCurrentStoreId()
++        );
++        foreach (array_keys($shippingRatesLayout) as $carrierName) {
++            $carrierKey = str_replace('-rates-validation', '', $carrierName);
++            if (!array_key_exists($carrierKey, $activeCarriers)) {
++                unset($shippingRatesLayout[$carrierName]);
++            }
++        }
++        return $shippingRatesLayout;
++    }
++
++    /**
+      * Appends billing address form component to payment layout
+      *
+      * @param array $paymentLayout
+@@ -326,4 +370,34 @@ private function getCheckoutDataHelper()
+ 
+         return $this->checkoutDataHelper;
+     }
++
++    /**
++     * Get active carriers list.
++     *
++     * @return array
++     * @deprecated
++     */
++    private function getShippingConfig()
++    {
++        if (!$this->shippingConfig) {
++            $this->shippingConfig = ObjectManager::getInstance()->get(\Magento\Shipping\Model\Config::class);
++        }
++
++        return $this->shippingConfig;
++    }
++
++    /**
++     * Get store resolver.
++     *
++     * @return StoreResolverInterface
++     * @deprecated
++     */
++    private function getStoreResolver()
++    {
++        if (!$this->storeResolver) {
++            $this->storeResolver = ObjectManager::getInstance()->get(StoreResolverInterface::class);
++        }
++
++        return $this->storeResolver;
++    }
+ }
+diff --git a/app/code/Magento/Checkout/Test/Unit/Block/Cart/LayoutProcessorTest.php b/app/code/Magento/Checkout/Test/Unit/Block/Cart/LayoutProcessorTest.php
+index 854118c..3b98573 100644
+--- a/app/code/Magento/Checkout/Test/Unit/Block/Cart/LayoutProcessorTest.php
++++ b/app/code/Magento/Checkout/Test/Unit/Block/Cart/LayoutProcessorTest.php
+@@ -69,7 +69,7 @@ public function testProcess()
+         $this->countryCollection->expects($this->once())->method('loadByStore')->willReturnSelf();
+         $this->countryCollection->expects($this->once())->method('toOptionArray')->willReturn($countries);
+ 
+-        $this->regionCollection->expects($this->once())->method('load')->willReturnSelf();
++        $this->regionCollection->expects($this->once())->method('addAllowedCountriesFilter')->willReturnSelf();
+         $this->regionCollection->expects($this->once())->method('toOptionArray')->willReturn($regions);
+ 
+         $layoutMerged = $layout;
+@@ -77,7 +77,12 @@ public function testProcess()
+         ['address-fieldsets']['children']['fieldThree'] = ['param' => 'value'];
+         $layoutMergedPointer = &$layoutMerged['components']['block-summary']['children']['block-shipping']
+         ['children']['address-fieldsets']['children'];
+-
++        $layoutMerged['components']['checkoutProvider'] = [
++            'dictionaries' => [
++                'country_id' => [],
++                'region_id' => [],
++            ]
++        ];
+         $elements = [
+             'city' => [
+                 'visible' => false,
+diff --git a/app/code/Magento/Checkout/Test/Unit/Block/Checkout/DirectoryDataProcessorTest.php b/app/code/Magento/Checkout/Test/Unit/Block/Checkout/DirectoryDataProcessorTest.php
+new file mode 100644
+index 0000000..6964bed
+--- /dev/null
++++ b/app/code/Magento/Checkout/Test/Unit/Block/Checkout/DirectoryDataProcessorTest.php
+@@ -0,0 +1,114 @@
++<?php
++/**
++ * Copyright © 2013-2017 Magento, Inc. All rights reserved.
++ * See COPYING.txt for license details.
++ */
++namespace Magento\Checkout\Test\Unit\Block\Checkout;
++
++class DirectoryDataProcessorTest extends \PHPUnit_Framework_TestCase
++{
++    /**
++     * @var \Magento\Checkout\Block\Checkout\DirectoryDataProcessor
++     */
++    protected $model;
++
++    /**
++     * @var \PHPUnit_Framework_MockObject_MockObject
++     */
++    protected $countryCollectionFactoryMock;
++
++    /**
++     * @var \PHPUnit_Framework_MockObject_MockObject
++     */
++    protected $countryCollectionMock;
++
++    /**
++     * @var \PHPUnit_Framework_MockObject_MockObject
++     */
++    protected $regionCollectionFactoryMock;
++
++    /**
++     * @var \PHPUnit_Framework_MockObject_MockObject
++     */
++    protected $regionCollectionMock;
++
++    /**
++     * @var \PHPUnit_Framework_MockObject_MockObject
++     */
++    protected $storeResolverMock;
++
++    /**
++     * @var \PHPUnit_Framework_MockObject_MockObject
++     */
++    protected $directoryDataHelperMock;
++
++    protected function setUp()
++    {
++        $this->countryCollectionFactoryMock = $this->getMock(
++            \Magento\Directory\Model\ResourceModel\Country\CollectionFactory::class,
++            ['create'],
++            [],
++            '',
++            false
++        );
++        $this->countryCollectionMock = $this->getMock(
++            \Magento\Directory\Model\ResourceModel\Country\Collection::class,
++            [],
++            [],
++            '',
++            false
++        );
++        $this->regionCollectionFactoryMock = $this->getMock(
++            \Magento\Directory\Model\ResourceModel\Region\CollectionFactory::class,
++            ['create'],
++            [],
++            '',
++            false
++        );
++        $this->regionCollectionMock = $this->getMock(
++            \Magento\Directory\Model\ResourceModel\Region\Collection::class,
++            [],
++            [],
++            '',
++            false
++        );
++        $this->storeResolverMock = $this->getMock(
++            \Magento\Store\Api\StoreResolverInterface::class
++        );
++        $this->directoryDataHelperMock = $this->getMock(
++            \Magento\Directory\Helper\Data::class,
++            [],
++            [],
++            '',
++            false
++        );
++
++        $this->model = new \Magento\Checkout\Block\Checkout\DirectoryDataProcessor(
++            $this->countryCollectionFactoryMock,
++            $this->regionCollectionFactoryMock,
++            $this->storeResolverMock,
++            $this->directoryDataHelperMock
++        );
++    }
++
++    public function testProcess()
++    {
++        $expectedResult['components']['checkoutProvider']['dictionaries'] = [
++            'country_id' => [],
++            'region_id' => [],
++        ];
++
++        $this->countryCollectionFactoryMock->expects($this->once())
++            ->method('create')
++            ->willReturn($this->countryCollectionMock);
++        $this->countryCollectionMock->expects($this->once())->method('loadByStore')->willReturnSelf();
++        $this->countryCollectionMock->expects($this->once())->method('toOptionArray')->willReturn([]);
++        $this->regionCollectionFactoryMock->expects($this->once())
++            ->method('create')
++            ->willReturn($this->regionCollectionMock);
++        $this->regionCollectionMock->expects($this->once())->method('addAllowedCountriesFilter')->willReturnSelf();
++        $this->regionCollectionMock->expects($this->once())->method('toOptionArray')->willReturn([]);
++
++        $this->assertEquals($expectedResult, $this->model->process([]));
++    }
++}
+diff --git a/app/code/Magento/Checkout/Test/Unit/Block/Checkout/LayoutProcessorTest.php b/app/code/Magento/Checkout/Test/Unit/Block/Checkout/LayoutProcessorTest.php
+index bc59364..8e9c799 100644
+--- a/app/code/Magento/Checkout/Test/Unit/Block/Checkout/LayoutProcessorTest.php
++++ b/app/code/Magento/Checkout/Test/Unit/Block/Checkout/LayoutProcessorTest.php
+@@ -17,6 +17,8 @@
+ /**
+  * LayoutProcessorTest covers a list of variations for
+  * checkout layout processor
++ *
++ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
+  */
+ class LayoutProcessorTest extends \PHPUnit_Framework_TestCase
+ {
+@@ -45,6 +47,11 @@ class LayoutProcessorTest extends \PHPUnit_Framework_TestCase
+      */
+     private $layoutProcessor;
+ 
++    /**
++     * @var MockObject
++     */
++    private $storeResolver;
++
+     protected function setUp()
+     {
+         $objectManager = new ObjectManager($this);
+@@ -79,8 +86,11 @@ protected function setUp()
+             $this->attributeMerger
+         );
+ 
++        $this->storeResolver = $this->getMock(\Magento\Store\Api\StoreResolverInterface::class);
++
+         $objectManager->setBackwardCompatibleProperty($this->layoutProcessor, 'checkoutDataHelper', $this->dataHelper);
+         $objectManager->setBackwardCompatibleProperty($this->layoutProcessor, 'options', $options);
++        $objectManager->setBackwardCompatibleProperty($this->layoutProcessor, 'storeResolver', $this->storeResolver);
+     }
+ 
+     /**
+diff --git a/app/code/Magento/Checkout/etc/frontend/di.xml b/app/code/Magento/Checkout/etc/frontend/di.xml
+index f283545..2ef7a24 100644
+--- a/app/code/Magento/Checkout/etc/frontend/di.xml
++++ b/app/code/Magento/Checkout/etc/frontend/di.xml
+@@ -55,6 +55,7 @@
+             <argument name="layoutProcessors" xsi:type="array">
+                 <item name="addressFormAttributes" xsi:type="object">Magento\Checkout\Block\Checkout\LayoutProcessor</item>
+                 <item name="totalsSortOrder" xsi:type="object">Magento\Checkout\Block\Checkout\TotalsProcessor</item>
++                <item name="directoryData" xsi:type="object">Magento\Checkout\Block\Checkout\DirectoryDataProcessor</item>
+             </argument>
+         </arguments>
+     </type>
+diff --git a/app/code/Magento/Directory/Model/ResourceModel/Region/Collection.php b/app/code/Magento/Directory/Model/ResourceModel/Region/Collection.php
+index e9c7a4e..5f5bbaa 100644
+--- a/app/code/Magento/Directory/Model/ResourceModel/Region/Collection.php
++++ b/app/code/Magento/Directory/Model/ResourceModel/Region/Collection.php
+@@ -9,6 +9,14 @@
+  */
+ namespace Magento\Directory\Model\ResourceModel\Region;
+ 
++use Magento\Directory\Model\AllowedCountries;
++use Magento\Framework\App\ObjectManager;
++use Magento\Store\Model\ScopeInterface;
++
++/**
++ * Class Collection
++ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
++ */
+ class Collection extends \Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection
+ {
+     /**
+@@ -31,6 +39,11 @@ class Collection extends \Magento\Framework\Model\ResourceModel\Db\Collection\Ab
+     protected $_localeResolver;
+ 
+     /**
++     * @var AllowedCountries
++     */
++    private $allowedCountriesReader;
++
++    /**
+      * @param \Magento\Framework\Data\Collection\EntityFactory $entityFactory
+      * @param \Psr\Log\LoggerInterface $logger
+      * @param \Magento\Framework\Data\Collection\Db\FetchStrategyInterface $fetchStrategy
+@@ -90,6 +103,40 @@ protected function _initSelect()
+     }
+ 
+     /**
++     * Return Allowed Countries reader
++     *
++     * @return \Magento\Directory\Model\AllowedCountries
++     * @deprecated
++     */
++    private function getAllowedCountriesReader()
++    {
++        if (!$this->allowedCountriesReader) {
++            $this->allowedCountriesReader = ObjectManager::getInstance()->get(AllowedCountries::class);
++        }
++
++        return $this->allowedCountriesReader;
++    }
++
++    /**
++     * Set allowed countries filter based on the given store.
++     * This is a convenience method for collection filtering based on store configuration settings.
++     *
++     * @param null|int|string|\Magento\Store\Model\Store $store
++     * @return \Magento\Directory\Model\ResourceModel\Region\Collection
++     */
++    public function addAllowedCountriesFilter($store = null)
++    {
++        $allowedCountries = $this->getAllowedCountriesReader()
++            ->getAllowedCountries(ScopeInterface::SCOPE_STORE, $store);
++
++        if (!empty($allowedCountries)) {
++            $this->addFieldToFilter('main_table.country_id', ['in' => $allowedCountries]);
++        }
++
++        return $this;
++    }
++
++    /**
+      * Filter by country_id
+      *
+      * @param string|array $countryId
+diff --git a/app/code/Magento/Directory/Test/Unit/Model/ResourceModel/Region/CollectionTest.php b/app/code/Magento/Directory/Test/Unit/Model/ResourceModel/Region/CollectionTest.php
+index 739e453..9467b6b 100644
+--- a/app/code/Magento/Directory/Test/Unit/Model/ResourceModel/Region/CollectionTest.php
++++ b/app/code/Magento/Directory/Test/Unit/Model/ResourceModel/Region/CollectionTest.php
+@@ -6,6 +6,7 @@
+ namespace Magento\Directory\Test\Unit\Model\ResourceModel\Region;
+ 
+ use Magento\Directory\Model\ResourceModel\Region\Collection;
++use Magento\Directory\Model\AllowedCountries;
+ use Magento\Framework\DB\Adapter\Pdo\Mysql;
+ use Magento\Framework\DB\Select;
+ use Magento\Framework\Model\ResourceModel\Db\AbstractDb;
+@@ -15,7 +16,14 @@
+ use Magento\Framework\Locale\ResolverInterface;
+ use Magento\Framework\DataObject;
+ use Psr\Log\LoggerInterface;
++use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
++use PHPUnit_Framework_MockObject_MockObject as MockObject;
+ 
++/**
++ * Class CollectionTest
++ *
++ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
++ */
+ class CollectionTest extends \PHPUnit_Framework_TestCase
+ {
+     /**
+@@ -23,15 +31,22 @@ class CollectionTest extends \PHPUnit_Framework_TestCase
+      */
+     private $collection;
+ 
++    /**
++     * @var MockObject
++     */
++    private $allowedCountries;
++
+     protected function setUp()
+     {
++        $objectManager = new ObjectManager($this);
+         $entityFactoryMock = $this->getMock(EntityFactory::class, [], [], '', false);
+         $loggerMock = $this->getMock(LoggerInterface::class);
+         $fetchStrategyMock = $this->getMock(FetchStrategyInterface::class);
+         $eventManagerMock = $this->getMock(ManagerInterface::class);
+         $localeResolverMock = $this->getMock(ResolverInterface::class);
+         $connectionMock = $this->getMock(Mysql::class, [], [], '', false);
+-        $resourceMock = $this->getMockForAbstractClass(AbstractDb::class,
++        $resourceMock = $this->getMockForAbstractClass(
++            AbstractDb::class,
+             [],
+             '',
+             false,
+@@ -39,6 +54,7 @@ protected function setUp()
+             true,
+             ['getConnection', 'getMainTable', 'getTable', '__wakeup']
+         );
++        $this->allowedCountries = $this->getMock(AllowedCountries::class, [], [], '', false);
+ 
+         $selectMock = $this->getMock(Select::class, [], [], '', false);
+         $connectionMock->expects($this->any())->method('select')->will($this->returnValue($selectMock));
+@@ -54,6 +70,12 @@ protected function setUp()
+             $connectionMock,
+             $resourceMock
+         );
++
++        $objectManager->setBackwardCompatibleProperty(
++            $this->collection,
++            'allowedCountriesReader',
++            $this->allowedCountries
++        );
+     }
+ 
+     public function testToOptionArray()
+@@ -98,4 +120,14 @@ public function testToOptionArray()
+ 
+         $this->assertEquals($expectedResult, $this->collection->toOptionArray());
+     }
++
++    public function testAddAllowedCountriesFilter()
++    {
++        $allowedCountries = [1, 2, 3];
++        $this->allowedCountries->expects($this->once())->method('getAllowedCountries')->with(
++            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
++            null
++        )->willReturn($allowedCountries);
++        $this->assertEquals($this->collection->addAllowedCountriesFilter(), $this->collection);
++    }
+ }
+diff --git a/app/code/Magento/Ui/view/base/web/js/form/element/select.js b/app/code/Magento/Ui/view/base/web/js/form/element/select.js
+index fa70921..23b6632 100644
+--- a/app/code/Magento/Ui/view/base/web/js/form/element/select.js
++++ b/app/code/Magento/Ui/view/base/web/js/form/element/select.js
+@@ -105,7 +105,9 @@ define([
+     return Abstract.extend({
+         defaults: {
+             customName: '${ $.parentName }.${ $.index }_input',
+-            elementTmpl: 'ui/form/element/select'
++            elementTmpl: 'ui/form/element/select',
++            caption: '',
++            options: []
+         },
+ 
+         /**
+@@ -128,28 +130,6 @@ define([
+         },
+ 
+         /**
+-         * Parses options and merges the result with instance
+-         *
+-         * @param  {Object} config
+-         * @returns {Object} Chainable.
+-         */
+-        initConfig: function (config) {
+-            var options = config.options,
+-                captionValue = config.captionValue || '',
+-                result = parseOptions(options, captionValue);
+-
+-            if (config.caption) {
+-                delete result.caption;
+-            }
+-
+-            _.extend(config, result);
+-
+-            this._super();
+-
+-            return this;
+-        },
+-
+-        /**
+          * Calls 'initObservable' of parent, initializes 'options' and 'initialOptions'
+          *     properties, calls 'setOptions' passing options to it
+          *
+@@ -160,7 +140,7 @@ define([
+ 
+             this.initialOptions = this.options;
+ 
+-            this.observe('options')
++            this.observe('options caption')
+                 .setOptions(this.options());
+ 
+             return this;
+@@ -209,7 +189,7 @@ define([
+                 return option && option.value;
+             }
+ 
+-            if (!this.caption) {
++            if (!this.caption()) {
+                 return findFirst(this.options);
+             }
+         },
+@@ -254,14 +234,20 @@ define([
+          * @returns {Object} Chainable
+          */
+         setOptions: function (data) {
+-            var isVisible;
++            var captionValue = this.captionValue || '',
++                result = parseOptions(data, captionValue),
++                isVisible;
++
++            this.indexedOptions = indexOptions(result.options);
+ 
+-            this.indexedOptions = indexOptions(data);
++            this.options(result.options);
+ 
+-            this.options(data);
++            if (!this.caption()) {
++                this.caption(result.caption);
++            }
+ 
+             if (this.customEntry) {
+-                isVisible = !!data.length;
++                isVisible = !!result.options.length;
+ 
+                 this.setVisible(isVisible);
+                 this.toggleInput(!isVisible);
+@@ -296,7 +282,7 @@ define([
+          * @returns {Object} Chainable.
+          */
+         clear: function () {
+-            var value = this.caption ? '' : findFirst(this.options);
++            var value = this.caption() ? '' : findFirst(this.options);
+ 
+             this.value(value);
+ 
+diff --git a/dev/tests/js/jasmine/tests/app/code/Magento/Ui/base/js/form/element/select.test.js b/dev/tests/js/jasmine/tests/app/code/Magento/Ui/base/js/form/element/select.test.js
+index 905e747..ddcf0d5 100644
+--- a/dev/tests/js/jasmine/tests/app/code/Magento/Ui/base/js/form/element/select.test.js
++++ b/dev/tests/js/jasmine/tests/app/code/Magento/Ui/base/js/form/element/select.test.js
+@@ -179,7 +179,7 @@ define([
+                     {
+                         value: 'valLast'
+                     }];
+-                model.caption = false;
++                model.caption('');
+                 expect(model.normalizeData('')).toEqual('valFirst');
+             });
+         });

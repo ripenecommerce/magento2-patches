@@ -1,0 +1,538 @@
+From c41743d409ad75f6ef02da2f06162046a69cdc28 Mon Sep 17 00:00:00 2001
+From: Pieter Hoste <hoste.pieter@gmail.com>
+Date: Sun, 23 Apr 2017 10:37:21 +0200
+Subject: [PATCH] Backport of MAGETWO-60351 for Magento 2.1 - Unnecessary
+ disabled payment methods on checkout page #4868
+
+---
+ .../Payment/Plugin/PaymentConfigurationProcess.php |  73 ++++++++++
+ .../Plugin/PaymentConfigurationProcessTest.php     | 146 +++++++++++++++++++
+ app/code/Magento/Payment/etc/frontend/di.xml       |   3 +
+ .../Plugin/PaymentVaultConfigurationProcess.php    |  93 ++++++++++++
+ .../PaymentVaultConfigurationProcessTest.php       | 158 +++++++++++++++++++++
+ app/code/Magento/Vault/etc/frontend/di.xml         |   4 +
+ 6 files changed, 477 insertions(+)
+ create mode 100644 app/code/Magento/Payment/Plugin/PaymentConfigurationProcess.php
+ create mode 100644 app/code/Magento/Payment/Test/Unit/Plugin/PaymentConfigurationProcessTest.php
+ create mode 100644 app/code/Magento/Vault/Plugin/PaymentVaultConfigurationProcess.php
+ create mode 100644 app/code/Magento/Vault/Test/Unit/Plugin/PaymentVaultConfigurationProcessTest.php
+
+diff --git a/app/code/Magento/Payment/Plugin/PaymentConfigurationProcess.php b/app/code/Magento/Payment/Plugin/PaymentConfigurationProcess.php
+new file mode 100644
+index 0000000..ff5d7b3
+--- /dev/null
++++ b/app/code/Magento/Payment/Plugin/PaymentConfigurationProcess.php
+@@ -0,0 +1,73 @@
++<?php
++/**
++ * Copyright © 2013-2017 Magento, Inc. All rights reserved.
++ * See COPYING.txt for license details.
++ */
++namespace Magento\Payment\Plugin;
++
++/**
++ * Class PaymentConfigurationProcess
++ *
++ * Removes inactive payment methods and group from checkout configuration.
++ */
++class PaymentConfigurationProcess
++{
++    /**
++     * @var \Magento\Payment\Api\PaymentMethodListInterface
++     */
++    private $paymentMethodList;
++
++    /**
++     * @var \Magento\Store\Model\StoreManagerInterface
++     */
++    private $storeManager;
++
++    /**
++     * @param \Magento\Payment\Api\PaymentMethodListInterface $paymentMethodList
++     * @param \Magento\Store\Model\StoreManagerInterface $storeManager
++     */
++    public function __construct(
++        \Magento\Payment\Api\PaymentMethodListInterface $paymentMethodList,
++        \Magento\Store\Model\StoreManagerInterface $storeManager
++    ) {
++        $this->paymentMethodList = $paymentMethodList;
++        $this->storeManager = $storeManager;
++    }
++
++    /**
++     * Checkout LayoutProcessor before process plugin.
++     *
++     * @param \Magento\Checkout\Block\Checkout\LayoutProcessor $processor
++     * @param array $jsLayout
++     * @return array
++     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
++     */
++    public function beforeProcess(\Magento\Checkout\Block\Checkout\LayoutProcessor $processor, $jsLayout)
++    {
++        $configuration = &$jsLayout['components']['checkout']['children']['steps']['children']['billing-step']
++        ['children']['payment']['children']['renders']['children'];
++
++        if (!isset($configuration)) {
++            return [$jsLayout];
++        }
++
++        $storeId = $this->storeManager->getStore()->getId();
++        $activePaymentMethodList = $this->paymentMethodList->getActiveList($storeId);
++        $getCodeFunc = function ($method) {
++            return $method->getCode();
++        };
++        $activePaymentMethodCodes = array_map($getCodeFunc, $activePaymentMethodList);
++
++        foreach ($configuration as $paymentGroup => $groupConfig) {
++            $notActivePaymentMethodCodes = array_diff(array_keys($groupConfig['methods']), $activePaymentMethodCodes);
++            foreach ($notActivePaymentMethodCodes as $notActivePaymentMethodCode) {
++                unset($configuration[$paymentGroup]['methods'][$notActivePaymentMethodCode]);
++            }
++            if (empty($configuration[$paymentGroup]['methods'])) {
++                unset($configuration[$paymentGroup]);
++            }
++        }
++
++        return [$jsLayout];
++    }
++}
+diff --git a/app/code/Magento/Payment/Test/Unit/Plugin/PaymentConfigurationProcessTest.php b/app/code/Magento/Payment/Test/Unit/Plugin/PaymentConfigurationProcessTest.php
+new file mode 100644
+index 0000000..646c7bc
+--- /dev/null
++++ b/app/code/Magento/Payment/Test/Unit/Plugin/PaymentConfigurationProcessTest.php
+@@ -0,0 +1,146 @@
++<?php
++/**
++ * Copyright © 2013-2017 Magento, Inc. All rights reserved.
++ * See COPYING.txt for license details.
++ */
++namespace Magento\Payment\Test\Unit\Plugin;
++
++/**
++ * Class PaymentConfigurationProcessTest.
++ */
++class PaymentConfigurationProcessTest extends \PHPUnit_Framework_TestCase
++{
++    /**
++     * @var \Magento\Store\Model\StoreManagerInterface|\PHPUnit_Framework_MockObject_MockObject
++     */
++    private $storeManager;
++
++    /**
++     * @var \Magento\Store\Api\Data\StoreInterface|\PHPUnit_Framework_MockObject_MockObject
++     */
++    private $store;
++
++    /**
++     * @var \Magento\Payment\Api\PaymentMethodListInterface|\PHPUnit_Framework_MockObject_MockObject
++     */
++    private $paymentMethodList;
++
++    /**
++     * @var \Magento\Checkout\Block\Checkout\LayoutProcessor|\PHPUnit_Framework_MockObject_MockObject
++     */
++    private $layoutProcessor;
++
++    /**
++     * @var \Magento\Payment\Plugin\PaymentConfigurationProcess
++     */
++    private $plugin;
++
++    /**
++     * Set up
++     */
++    protected function setUp()
++    {
++        $this->storeManager = $this
++            ->getMockBuilder(\Magento\Store\Model\StoreManagerInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getStore'])
++            ->getMockForAbstractClass();
++        $this->store = $this
++            ->getMockBuilder(\Magento\Store\Api\Data\StoreInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getId'])
++            ->getMockForAbstractClass();
++        $this->paymentMethodList = $this
++            ->getMockBuilder(\Magento\Payment\Api\PaymentMethodListInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getActiveList'])
++            ->getMockForAbstractClass();
++        $this->layoutProcessor =  $this
++            ->getMockBuilder(\Magento\Checkout\Block\Checkout\LayoutProcessor::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['process'])
++            ->getMockForAbstractClass();
++
++        $objectManagerHelper = new \Magento\Framework\TestFramework\Unit\Helper\ObjectManager($this);
++        $this->plugin = $objectManagerHelper->getObject(
++            \Magento\Payment\Plugin\PaymentConfigurationProcess::class,
++            [
++                'paymentMethodList' => $this->paymentMethodList,
++                'storeManager' => $this->storeManager
++            ]
++        );
++    }
++
++    /**
++     * @param array $jsLayout
++     * @param array $activePaymentList
++     * @param array $expectedResult
++     * @dataProvider beforeProcessDataProvider
++     */
++    public function testBeforeProcess($jsLayout, $activePaymentList, $expectedResult)
++    {
++        $this->store->expects($this->once())->method('getId')->willReturn(1);
++        $this->storeManager->expects($this->once())->method('getStore')->willReturn($this->store);
++        $this->paymentMethodList->expects($this->once())
++            ->method('getActiveList')
++            ->with(1)
++            ->willReturn($activePaymentList);
++
++        $result = $this->plugin->beforeProcess($this->layoutProcessor, $jsLayout);
++        $this->assertEquals($result[0], $expectedResult);
++    }
++
++    /**
++     * Data provider for BeforeProcess.
++     *
++     * @return array
++     */
++    public function beforeProcessDataProvider()
++    {
++        $jsLayout['components']['checkout']['children']['steps']['children']['billing-step']
++        ['children']['payment']['children']['renders']['children'] = [
++            'braintree' => [
++                'methods' => [
++                    'braintree_paypal' => [],
++                    'braintree' => []
++                ]
++            ],
++            'paypal-payments' => [
++                'methods' => [
++                    'payflowpro' => [],
++                    'payflow_link' => []
++                ]
++            ]
++        ];
++        $result1['components']['checkout']['children']['steps']['children']['billing-step']
++        ['children']['payment']['children']['renders']['children'] = [];
++        $result2['components']['checkout']['children']['steps']['children']['billing-step']
++        ['children']['payment']['children']['renders']['children'] = [
++            'braintree' => [
++                'methods' => [
++                    'braintree' => [],
++                    'braintree_paypal' => []
++                ]
++            ]
++        ];
++
++        $braintreePaymentMethod = $this
++            ->getMockBuilder(\Magento\Payment\Api\Data\PaymentMethodInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getCode'])
++            ->getMockForAbstractClass();
++        $braintreePaypalPaymentMethod = $this
++            ->getMockBuilder(\Magento\Payment\Api\Data\PaymentMethodInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getCode'])
++            ->getMockForAbstractClass();
++
++        $braintreePaymentMethod->expects($this->any())->method('getCode')->willReturn('braintree');
++        $braintreePaypalPaymentMethod->expects($this->any())->method('getCode')->willReturn('braintree_paypal');
++
++        return [
++            [$jsLayout, [], $result1],
++            [$jsLayout, [$braintreePaymentMethod, $braintreePaypalPaymentMethod], $result2]
++        ];
++    }
++}
+diff --git a/app/code/Magento/Payment/etc/frontend/di.xml b/app/code/Magento/Payment/etc/frontend/di.xml
+index d86147b..e3d9c35 100644
+--- a/app/code/Magento/Payment/etc/frontend/di.xml
++++ b/app/code/Magento/Payment/etc/frontend/di.xml
+@@ -19,4 +19,7 @@
+             </argument>
+         </arguments>
+     </type>
++    <type name="Magento\Checkout\Block\Checkout\LayoutProcessor">
++        <plugin name="ProcessPaymentConfiguration" type="Magento\Payment\Plugin\PaymentConfigurationProcess"/>
++    </type>
+ </config>
+diff --git a/app/code/Magento/Vault/Plugin/PaymentVaultConfigurationProcess.php b/app/code/Magento/Vault/Plugin/PaymentVaultConfigurationProcess.php
+new file mode 100644
+index 0000000..d0fa859
+--- /dev/null
++++ b/app/code/Magento/Vault/Plugin/PaymentVaultConfigurationProcess.php
+@@ -0,0 +1,93 @@
++<?php
++/**
++ * Copyright © 2013-2017 Magento, Inc. All rights reserved.
++ * See COPYING.txt for license details.
++ */
++namespace Magento\Vault\Plugin;
++
++/**
++ * Class PaymentVaultConfigurationProcess
++ *
++ * Checks if vault group have active vaults.
++ */
++class PaymentVaultConfigurationProcess
++{
++    /**
++     * @var \Magento\Vault\Api\PaymentMethodListInterface
++     */
++    private $vaultPaymentList;
++
++    /**
++     * @var \Magento\Vault\Api\PaymentMethodListInterface
++     */
++    private $paymentMethodList;
++
++    /**
++     * @var \Magento\Store\Model\StoreManagerInterface
++     */
++    private $storeManager;
++
++    /**
++     * @param \Magento\Vault\Api\PaymentMethodListInterface $vaultPaymentList
++     * @param \Magento\Payment\Api\PaymentMethodListInterface $paymentMethodList
++     * @param \Magento\Store\Model\StoreManagerInterface $storeManager
++     */
++    public function __construct(
++        \Magento\Vault\Api\PaymentMethodListInterface $vaultPaymentList,
++        \Magento\Payment\Api\PaymentMethodListInterface $paymentMethodList,
++        \Magento\Store\Model\StoreManagerInterface $storeManager
++    ) {
++        $this->vaultPaymentList = $vaultPaymentList;
++        $this->paymentMethodList = $paymentMethodList;
++        $this->storeManager = $storeManager;
++    }
++
++    /**
++     * Checkout LayoutProcessor before process plugin.
++     *
++     * @param \Magento\Checkout\Block\Checkout\LayoutProcessor $processor
++     * @param array $jsLayout
++     * @return array
++     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
++     */
++    public function beforeProcess(\Magento\Checkout\Block\Checkout\LayoutProcessor $processor, $jsLayout)
++    {
++        $configuration = &$jsLayout['components']['checkout']['children']['steps']['children']['billing-step']
++        ['children']['payment']['children']['renders']['children'];
++
++        if (!isset($configuration)) {
++            return [$jsLayout];
++        }
++
++        $storeId = $this->storeManager->getStore()->getId();
++        $activePaymentMethodList = $this->paymentMethodList->getActiveList($storeId);
++        $activeVaultList = $this->vaultPaymentList->getActiveList($storeId);
++        $getCodeFunc = function ($method) {
++            return $method->getCode();
++        };
++        $getProviderCodeFunc = function ($method) {
++            return $method->getProviderCode();
++        };
++        $activePaymentMethodCodes = array_map($getCodeFunc, $activePaymentMethodList);
++        $activeVaultProviderCodes = array_map($getProviderCodeFunc, $activeVaultList);
++        $activePaymentMethodCodes = array_merge(
++            $activePaymentMethodCodes,
++            $activeVaultProviderCodes
++        );
++
++        foreach ($configuration as $paymentGroup => $groupConfig) {
++            $notActivePaymentMethodCodes = array_diff(array_keys($groupConfig['methods']), $activePaymentMethodCodes);
++            foreach ($notActivePaymentMethodCodes as $notActivePaymentMethodCode) {
++                unset($configuration[$paymentGroup]['methods'][$notActivePaymentMethodCode]);
++            }
++            if ($paymentGroup === 'vault' && !empty($activeVaultProviderCodes)) {
++                continue;
++            }
++            if (empty($configuration[$paymentGroup]['methods'])) {
++                unset($configuration[$paymentGroup]);
++            }
++        }
++
++        return [$jsLayout];
++    }
++}
+diff --git a/app/code/Magento/Vault/Test/Unit/Plugin/PaymentVaultConfigurationProcessTest.php b/app/code/Magento/Vault/Test/Unit/Plugin/PaymentVaultConfigurationProcessTest.php
+new file mode 100644
+index 0000000..ea23616
+--- /dev/null
++++ b/app/code/Magento/Vault/Test/Unit/Plugin/PaymentVaultConfigurationProcessTest.php
+@@ -0,0 +1,158 @@
++<?php
++/**
++ * Copyright © 2013-2017 Magento, Inc. All rights reserved.
++ * See COPYING.txt for license details.
++ */
++namespace Magento\Vault\Test\Unit\Plugin;
++
++/**
++ * Class PaymentVaultConfigurationProcessTest.
++ */
++class PaymentVaultConfigurationProcessTest extends \PHPUnit_Framework_TestCase
++{
++    /**
++     * @var \Magento\Store\Model\StoreManagerInterface|\PHPUnit_Framework_MockObject_MockObject
++     */
++    private $storeManager;
++
++    /**
++     * @var \Magento\Store\Api\Data\StoreInterface|\PHPUnit_Framework_MockObject_MockObject
++     */
++    private $store;
++
++    /**
++     * @var \Magento\Vault\Api\PaymentMethodListInterface|\PHPUnit_Framework_MockObject_MockObject
++     */
++    private $vaultList;
++
++    /**
++     * @var \Magento\Payment\Api\PaymentMethodListInterface|\PHPUnit_Framework_MockObject_MockObject
++     */
++    private $paymentMethodList;
++
++    /**
++     * @var \Magento\Checkout\Block\Checkout\LayoutProcessor|\PHPUnit_Framework_MockObject_MockObject
++     */
++    private $layoutProcessor;
++
++    /**
++     * @var \Magento\Vault\Plugin\PaymentVaultConfigurationProcess
++     */
++    private $plugin;
++
++    /**
++     * Set up
++     */
++    protected function setUp()
++    {
++        $this->storeManager = $this
++            ->getMockBuilder(\Magento\Store\Model\StoreManagerInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getStore'])
++            ->getMockForAbstractClass();
++        $this->store = $this
++            ->getMockBuilder(\Magento\Store\Api\Data\StoreInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getId'])
++            ->getMockForAbstractClass();
++        $this->vaultList = $this
++            ->getMockBuilder(\Magento\Vault\Api\PaymentMethodListInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getActiveList'])
++            ->getMockForAbstractClass();
++        $this->paymentMethodList = $this
++            ->getMockBuilder(\Magento\Payment\Api\PaymentMethodListInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getActiveList'])
++            ->getMockForAbstractClass();
++        $this->layoutProcessor =  $this
++            ->getMockBuilder(\Magento\Checkout\Block\Checkout\LayoutProcessor::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['process'])
++            ->getMockForAbstractClass();
++
++        $objectManagerHelper = new \Magento\Framework\TestFramework\Unit\Helper\ObjectManager($this);
++        $this->plugin = $objectManagerHelper->getObject(
++            \Magento\Vault\Plugin\PaymentVaultConfigurationProcess::class,
++            [
++                'vaultPaymentList' => $this->vaultList,
++                'paymentMethodList' => $this->paymentMethodList,
++                'storeManager' => $this->storeManager
++            ]
++        );
++    }
++
++    /**
++     * @param array $jsLayout
++     * @param array $activeVaultList
++     * @param array $activePaymentList
++     * @param array $expectedResult
++     * @dataProvider beforeProcessDataProvider
++     */
++    public function testBeforeProcess($jsLayout, $activeVaultList, $activePaymentList, $expectedResult)
++    {
++        $this->store->expects($this->once())->method('getId')->willReturn(1);
++        $this->storeManager->expects($this->once())->method('getStore')->willReturn($this->store);
++        $this->vaultList->expects($this->once())->method('getActiveList')->with(1)->willReturn($activeVaultList);
++        $this->paymentMethodList->expects($this->once())
++            ->method('getActiveList')
++            ->with(1)
++            ->willReturn($activePaymentList);
++        $result = $this->plugin->beforeProcess($this->layoutProcessor, $jsLayout);
++        $this->assertEquals($result[0], $expectedResult);
++    }
++
++    /**
++     * Data provider for BeforeProcess.
++     *
++     * @return array
++     */
++    public function beforeProcessDataProvider()
++    {
++        $jsLayout['components']['checkout']['children']['steps']['children']['billing-step']
++        ['children']['payment']['children']['renders']['children'] = [
++            'vault' => [
++                'methods' => []
++            ],
++            'braintree' => [
++                'methods' => [
++                    'braintree_paypal' => [],
++                    'braintree' => []
++                ]
++            ],
++            'paypal-payments' => [
++                'methods' => [
++                    'payflowpro' => [],
++                    'payflow_link' => []
++                ]
++            ]
++        ];
++        $result1['components']['checkout']['children']['steps']['children']['billing-step']
++        ['children']['payment']['children']['renders']['children'] = [];
++        $result2['components']['checkout']['children']['steps']['children']['billing-step']
++        ['children']['payment']['children']['renders']['children'] = [
++            'vault' => [
++                'methods' => []
++            ],
++            'braintree' => [
++                'methods' => [
++                    'braintree_paypal' => []
++                ]
++            ]
++        ];
++
++        $vaultPaymentMethod = $this
++            ->getMockBuilder(\Magento\Vault\Api\PaymentMethodListInterface::class)
++            ->disableOriginalConstructor()
++            ->setMethods(['getCode', 'getProviderCode'])
++            ->getMockForAbstractClass();
++
++        $vaultPaymentMethod->expects($this->any())->method('getCode')->willReturn('braintree_paypal_vault');
++        $vaultPaymentMethod->expects($this->any())->method('getProviderCode')->willReturn('braintree_paypal');
++
++        return [
++            [$jsLayout, [], [], $result1],
++            [$jsLayout, [$vaultPaymentMethod], [$vaultPaymentMethod], $result2]
++        ];
++    }
++}
+diff --git a/app/code/Magento/Vault/etc/frontend/di.xml b/app/code/Magento/Vault/etc/frontend/di.xml
+index faa7229..598a30a 100644
+--- a/app/code/Magento/Vault/etc/frontend/di.xml
++++ b/app/code/Magento/Vault/etc/frontend/di.xml
+@@ -19,4 +19,8 @@
+             <argument name="session" xsi:type="object">Magento\Customer\Model\Session</argument>
+         </arguments>
+     </type>
++    <type name="Magento\Checkout\Block\Checkout\LayoutProcessor">
++        <plugin name="ProcessPaymentVaultConfiguration" type="Magento\Vault\Plugin\PaymentVaultConfigurationProcess"/>
++        <plugin name="ProcessPaymentConfiguration" disabled="true"/>
++    </type>
+ </config>
