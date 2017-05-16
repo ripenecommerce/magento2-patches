@@ -26,15 +26,23 @@ you should have a M2 project that has composer.json at it's core that dicrates w
     "extra": {
         "patches": {
             "magento/module-catalog": {
-                "Fix: https://github.com/magento/magento2/issues/5438": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Catalog-M2.1.0-image-attribute-backend-model-hardcoded-attribute-code-removal.patch",
-                "Fix: https://github.com/magento/magento2/issues/6076": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Catalog-0001-MAGETWO-54223-CMS-Widgets-Catalog-Category-Link-widg.patch",
-                "Fix: https://github.com/magento/magento2/issues/5931 and https://github.com/magento/magento2/issues/5612": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Catalog-M2.1.5-MAGETWO-56410-MAGETWO-56411-github-issues-5931-5612.patch"
+                "Fix: https://github.com/magento/magento2/issues/5438": "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Catalog-M2.1.0-image-attribute-backend-model-hardcoded-attribute-code-removal.patch",
+                "Fix: https://github.com/magento/magento2/issues/6076": "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Catalog-0001-MAGETWO-54223-CMS-Widgets-Catalog-Category-Link-widg.patch",
+                "Fix: https://github.com/magento/magento2/issues/5931 and https://github.com/magento/magento2/issues/5612": "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Catalog-M2.1.5-MAGETWO-56410-MAGETWO-56411-github-issues-5931-5612.patch"
+            },
+            "magento/module-payment": {
+                "Fix: https://github.com/magento/magento2/pull/9365":
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Payment-M2.1.3-MAGETWO-60351-optimize-payment-methods-checkout.patch"
             },
             "magento/module-ui": {
-                "Fix: https://github.com/magento/magento2/issues/5438": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Ui-M2.1.0-allow-backend-to-know-the-origin-input-of-the-upload-request.patch"
+                "Fix: https://github.com/magento/magento2/issues/5438": "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Ui-M2.1.0-allow-backend-to-know-the-origin-input-of-the-upload-request.patch"
+            },
+            "magento/module-vault": {
+                "Fix: https://github.com/magento/magento2/pull/9365":
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Vault-M2.1.3-MAGETWO-60351-optimize-payment-methods-checkout.patch"
             },
             "magento/magento2-base": {
-                "Fix: https://github.com/magento/magento2/issues/4232": "https://raw.githubusercontent.com/Hevelop/magento2-patches/master/Patch-Magento_Base-0001-MAGETWO-52850-GitHub-UTF-8-special-character-issue-i.patch"
+                "Fix: https://github.com/magento/magento2/issues/4232": "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Base-0001-MAGETWO-52850-GitHub-UTF-8-special-character-issue-i.patch"
             }
         }
     }
