@@ -24,6 +24,10 @@ Patches have file-target paths that are relative to composer packages.
 
 ## Definitions for Patches
 
+Note: This is not intended to be copied and pasted in full, as these patches apply to different version of
+Magento (see the respective GitHub issue or pull request for details on what patches are needed in what
+versions). Instead, excerpt only the entry for the patch you know you need.
+
 ```json
 {
     "extra": {
