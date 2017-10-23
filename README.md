@@ -38,6 +38,10 @@ Patches have file-target paths that are relative to composer packages.
                 "Fix: https://github.com/magento/magento2/issues/5931 and https://github.com/magento/magento2/issues/5612":
                 "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Catalog-M2.1.5-MAGETWO-56410-MAGETWO-56411-github-issues-5931-5612.patch"
             },
+            "magento/module-customer": {
+                "Fix: https://github.com/magento/magento2/issues/10838":
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/Patch-Magento-Customer-grid-indexer-add-missing-function.patch"
+            },
             "magento/module-payment": {
                 "Fix: https://github.com/magento/magento2/pull/9365":
                 "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Payment-M2.1.3-MAGETWO-60351-optimize-payment-methods-checkout.patch"
