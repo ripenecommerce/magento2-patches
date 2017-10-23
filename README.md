@@ -12,19 +12,20 @@ composer config repositories.ripen-patches vcs https://github.com/ripenecommerce
 composer require ripenecommerce/magento2-patches=dev-master
 ```
 
-2. The project composer.json should also already have an "extra" key defined. if you add new sub-key there called 
-   "patches" (see above), then the next time you do "composer update", the modules that have patches defined will 
-   be re-installed and patches applied. Patches have file-target paths that are relative to composer packages which 
-   means that the context defined in composer.json is pretty important and patches are not directly appliable in context 
-   on magento/magento2 repository, but they're ripe to be used for composer project.
-   
+2. The project `composer.json` should also already have an "extra" key defined. Add a new sub-key there called 
+   "patches" along with the specific patch definitions to apply (see last section below). Then the next time you do
+   `composer update`, the modules that have patches defined will be re-installed and patches applied. 
+
+## Patch Creation
+
+TODO: Complete instructions.
+
+Patches have file-target paths that are relative to composer packages.
+
+## Definitions for Patches
+
 ```json
 {
-
-    "require": {
-        "cweagans/composer-patches": "~1.4.0",
-    },
-
     "extra": {
         "patches": {
             "magento/module-catalog": {
