@@ -1,0 +1,22 @@
+diff --git a/Model/Indexer/Source.php b/Model/Indexer/Source.php
+index e4bf03e08..c04a37b47 100644
+--- a/www/vendor/magento/module-customer/Model/Indexer/Source.php
++++ b/www/vendor/magento/module-customer/Model/Indexer/Source.php
+@@ -69,6 +69,17 @@ class Source implements \IteratorAggregate, \Countable, SourceProviderInterface
+         return $this->customerCollection->getSelect();
+     }
+ 
++    // REF-PATCH START added missing function addAttributeToSelect
++    /**
++     * {@inheritdoc}
++     */
++    public function addAttributeToSelect($fieldName, $alias = null)
++    {
++        $this->customerCollection->addAttributeToSelect($fieldName, $alias);
++        return $this;
++    }
++    //REF-PATCH END
++
+     /**
+      * {@inheritdoc}
+      */
