@@ -1,8 +1,8 @@
-diff --git a/vendor/magento/module-customer/Model/Indexer/Source.php b/vendor/magento/module-customer/Model/Indexer/Source.php
+diff --git a/Model/Indexer/Source.php b/Model/Indexer/Source.php
 new file mode 100644
 index 0000000..2310953
 --- /dev/null
-+++ b/vendor/magento/module-customer/Model/Indexer/Source.php
++++ b/Model/Indexer/Source.php
 @@ -0,0 +1,154 @@
 +<?php
 +/**
@@ -158,11 +158,11 @@ index 0000000..2310953
 +        return $this->customerCollection->joinAttribute($alias, $attribute, $bind, $filter, $joinType, $storeId);
 +    }
 +}
-diff --git a/vendor/magento/module-customer/Model/ResourceModel/Customer/Indexer/Collection.php b/vendor/magento/module-customer/Model/ResourceModel/Customer/Indexer/Collection.php
+diff --git a/Model/ResourceModel/Customer/Indexer/Collection.php b/Model/ResourceModel/Customer/Indexer/Collection.php
 new file mode 100644
 index 0000000..5b9716a
 --- /dev/null
-+++ b/vendor/magento/module-customer/Model/ResourceModel/Customer/Indexer/Collection.php
++++ b/Model/ResourceModel/Customer/Indexer/Collection.php
 @@ -0,0 +1,20 @@
 +<?php
 +/**
@@ -184,10 +184,10 @@ index 0000000..5b9716a
 +        return $item;
 +    }
 +}
-diff --git a/vendor/magento/module-customer/etc/indexer.xml b/vendor/magento/module-customer/etc/indexer.xml
+diff --git a/etc/indexer.xml b/etc/indexer.xml
 index b48592c..5f64442 100644
---- a/vendor/magento/module-customer/etc/indexer.xml
-+++ b/vendor/magento/module-customer/etc/indexer.xml
+--- a/etc/indexer.xml
++++ b/etc/indexer.xml
 @@ -11,7 +11,7 @@
          <title translate="true">Customer Grid</title>
          <description translate="true">Rebuild Customer grid index</description>
