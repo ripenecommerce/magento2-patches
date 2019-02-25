@@ -1,0 +1,34 @@
+From f1994eaa8b8ec07649dc6239ac93157aabd3f180 Mon Sep 17 00:00:00 2001
+From: Adeel Qamar <Adeel.Qamar@dotmailer.com>
+Date: Mon, 25 Feb 2019 08:25:33 +0000
+Subject: [PATCH] Merged PR 11980: Catalog sync performance improvement
+
+Catalog syncs were failing with out of memory exceptions and were generally running sub optimally. Turns out, we were not correctly limiting the email_catalog collection when exporting products for a store. This in turn generated huge `in` clauses which included all catalog entity ids in the system.
+
+This change correctly limits the collection, causing `in` clauses which match the transactional data sync size set in admin configuration.
+
+####How to test
+Do catalog syncs still work correctly?
+Do the sql queries generated look sensible?
+Does the sync run at the same speed or faster?
+
+@benathomeofchampions run the sync with a test fixture of ~20k products. Batches of 150 used to complete in ~90s (running out of memory if triggered via admin site). After the change the same batch completed in less than 2s.
+
+Related work items: #83589
+---
+ Model/ResourceModel/Catalog/Collection.php | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Model/ResourceModel/Catalog/Collection.php b/Model/ResourceModel/Catalog/Collection.php
+index 6d610f1c..d69cc859 100755
+--- a/Model/ResourceModel/Catalog/Collection.php
++++ b/Model/ResourceModel/Catalog/Collection.php
+@@ -91,6 +91,8 @@ public function getProductsToExportByStore($store, $limit, $modified = false)
+                 ['null' => 'true']
+             );
+         }
++        $connectorCollection->getSelect()->limit($limit);
++
+         //check number of products
+         if ($connectorCollection->getSize()) {
+             $productIds = $connectorCollection->getColumnValues('product_id');
