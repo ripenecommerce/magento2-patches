@@ -32,6 +32,18 @@ versions). Instead, excerpt only the entry for the patch you know you need.
 {
     "extra": {
         "patches": {
+            "dotmailer/dotmailer-magento2-extension": {
+                "Fix: https://github.com/dotmailer/dotmailer-magento2-extension/issues/533":
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Dotdigitalgroup_Email-M2.3.0-fix-catalog-export.patch"
+            },
+            "magento/framework": {
+                "Fix: https://maxchadwick.xyz/blog/reindexing-customer-grid-runs-out-of-memory-in-magento-2":
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/PATCH_MDVA-4538_EE_2.1.4_v2_part2.composer.patch"
+            },
+            "magento/magento2-base": {
+                "Fix: https://github.com/magento/magento2/issues/4232":
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Base-0001-MAGETWO-52850-GitHub-UTF-8-special-character-issue-i.patch"
+            },
             "magento/module-catalog": {
                 "Fix: https://github.com/magento/magento2/issues/5438":
                 "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Catalog-M2.1.0-image-attribute-backend-model-hardcoded-attribute-code-removal.patch",
@@ -44,7 +56,10 @@ versions). Instead, excerpt only the entry for the patch you know you need.
             },
             "magento/module-customer": {
                 "Fix: https://github.com/magento/magento2/issues/10838":
-                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/Patch-Magento-Customer-grid-indexer-add-missing-function.patch"
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/Patch-Magento-Customer-grid-indexer-add-missing-function.patch",
+
+                "Fix: https://maxchadwick.xyz/blog/reindexing-customer-grid-runs-out-of-memory-in-magento-2":
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/PATCH_MDVA-4538_EE_2.1.4_v2.composer.patch"
             },
             "magento/module-payment": {
                 "Fix: https://github.com/magento/magento2/pull/9365":
@@ -57,10 +72,6 @@ versions). Instead, excerpt only the entry for the patch you know you need.
             "magento/module-vault": {
                 "Fix: https://github.com/magento/magento2/pull/9365":
                 "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Vault-M2.1.3-MAGETWO-60351-optimize-payment-methods-checkout.patch"
-            },
-            "magento/magento2-base": {
-                "Fix: https://github.com/magento/magento2/issues/4232":
-                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/Patch-Magento_Base-0001-MAGETWO-52850-GitHub-UTF-8-special-character-issue-i.patch"
             }
         }
     }
