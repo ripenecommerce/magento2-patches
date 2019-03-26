@@ -1,7 +1,7 @@
-diff --git a/DB/Adapter/Pdo/Mysql.php b/DB/Adapter/Pdo/Mysql.php
+diff --git a/lib/internal/Magento/Framework/DB/Adapter/Pdo/Mysql.php b/lib/internal/Magento/Framework/DB/Adapter/Pdo/Mysql.php
 index 1449d6d..38085a3 100644
---- a/DB/Adapter/Pdo/Mysql.php
-+++ b/DB/Adapter/Pdo/Mysql.php
+--- a/lib/internal/Magento/Framework/DB/Adapter/Pdo/Mysql.php
++++ b/lib/internal/Magento/Framework/DB/Adapter/Pdo/Mysql.php
 @@ -2904,7 +2904,7 @@ class Mysql extends \Zend_Db_Adapter_Pdo_Mysql implements AdapterInterface
                  if (isset($condition['to'])) {
                      $query .= empty($query) ? '' : ' AND ';
