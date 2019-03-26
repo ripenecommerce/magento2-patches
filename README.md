@@ -38,7 +38,9 @@ versions). Instead, excerpt only the entry for the patch you know you need.
             },
             "magento/framework": {
                 "Fix: https://maxchadwick.xyz/blog/reindexing-customer-grid-runs-out-of-memory-in-magento-2":
-                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/PATCH_MDVA-4538_EE_2.1.4_v2_part2.composer.patch"
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/PATCH_MDVA-4538_EE_2.1.4_v2_part2.composer.patch",
+                "Fix: https://magento.com/tech-resources/download#download2288":
+                "https://raw.githubusercontent.com/ripenecommerce/magento2-patches/master/PRODSECBUG-2198-2.1-CE-2019-03-25-08-33-53.patch"
             },
             "magento/magento2-base": {
                 "Fix: https://github.com/magento/magento2/issues/4232":
