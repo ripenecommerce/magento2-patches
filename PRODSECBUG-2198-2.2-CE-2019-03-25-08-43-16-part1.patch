@@ -1,7 +1,7 @@
-diff --git a/lib/internal/Magento/Catalog/Model/Product/ProductFrontendAction/Synchronizer.php b/lib/internal/Magento/Catalog/Model/Product/ProductFrontendAction/Synchronizer.php
+diff --git a/app/code/Magento/Catalog/Model/Product/ProductFrontendAction/Synchronizer.php b/app/code/Magento/Catalog/Model/Product/ProductFrontendAction/Synchronizer.php
 index 7a1926c..331c667 100644
---- a/lib/internal/Magento/Catalog/Model/Product/ProductFrontendAction/Synchronizer.php
-+++ b/lib/internal/Magento/Catalog/Model/Product/ProductFrontendAction/Synchronizer.php
+--- a/app/code/Magento/Catalog/Model/Product/ProductFrontendAction/Synchronizer.php
++++ b/app/code/Magento/Catalog/Model/Product/ProductFrontendAction/Synchronizer.php
 @@ -138,7 +138,9 @@ class Synchronizer
          $productIds = [];
  
