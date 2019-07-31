@@ -307,6 +307,3 @@ index 441da10..69505d4 100644
       * The MySQL drivers do it nice, no processing required.
       *
       * @param mixed $value
--- 
-2.7.4
-
