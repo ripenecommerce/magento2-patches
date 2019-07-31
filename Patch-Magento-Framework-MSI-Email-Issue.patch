@@ -1,0 +1,147 @@
+diff --git a/Mail/Message.php b/Mail/Message.php
+index 6f156e42dfdb..bc7193f107bb 100644
+--- a/Mail/Message.php
++++ b/Mail/Message.php
+@@ -89,10 +89,23 @@ public function getBody()
+
+     /**
+      * {@inheritdoc}
++     *
++     * @deprecated This function is missing the from name. The
++     * setFromAddress() function sets both from address and from name.
++     * @see setFromAddress()
+      */
+     public function setFrom($fromAddress)
+     {
+-        $this->zendMessage->setFrom($fromAddress);
++        $this->setFromAddress($fromAddress, null);
++        return $this;
++    }
++
++    /**
++     * {@inheritdoc}
++     */
++    public function setFromAddress($fromAddress, $fromName = null)
++    {
++        $this->zendMessage->setFrom($fromAddress, $fromName);
+         return $this;
+     }
+
+diff --git a/Mail/Template/TransportBuilder.php b/Mail/Template/TransportBuilder.php
+index eac5d74c6e3d..a7bb96122a84 100644
+--- a/Mail/Template/TransportBuilder.php
++++ b/Mail/Template/TransportBuilder.php
+@@ -17,6 +17,8 @@
+ use Magento\Framework\Phrase;
+
+ /**
++ * TransportBuilder
++ *
+  * @api
+  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
+  */
+@@ -175,13 +177,30 @@ public function setReplyTo($email, $name = null)
+     /**
+      * Set mail from address
+      *
++     * @deprecated This function sets the from address for the first store only.
++     * new function setFromByStore introduced to allow setting of from address
++     * based on store.
++     * @see setFromByStore()
++     *
+      * @param string|array $from
+      * @return $this
+      */
+     public function setFrom($from)
+     {
+-        $result = $this->_senderResolver->resolve($from);
+-        $this->message->setFrom($result['email'], $result['name']);
++        return $this->setFromByStore($from, null);
++    }
++
++    /**
++     * Set mail from address by store
++     *
++     * @param string|array $from
++     * @param string|int $store
++     * @return $this
++     */
++    public function setFromByStore($from, $store = null)
++    {
++        $result = $this->_senderResolver->resolve($from, $store);
++        $this->message->setFromAddress($result['email'], $result['name']);
+         return $this;
+     }
+
+diff --git a/Mail/Template/TransportBuilderByStore.php b/Mail/Template/TransportBuilderByStore.php
+index 785c93824a57..85b1b181d4f9 100644
+--- a/Mail/Template/TransportBuilderByStore.php
++++ b/Mail/Template/TransportBuilderByStore.php
+@@ -8,6 +8,13 @@
+
+ use Magento\Framework\Mail\MessageInterface;
+
++/**
++ * Class TransportBuilderByStore
++ *
++ * @deprecated The ability to set From address based on store is now available
++ * in the \Magento\Framework\Mail\Template\TransportBuilder class
++ * @see \Magento\Framework\Mail\Template\TransportBuilder::setFromByStore
++ */
+ class TransportBuilderByStore
+ {
+     /**
+@@ -47,7 +54,7 @@ public function __construct(
+     public function setFromByStore($from, $store)
+     {
+         $result = $this->senderResolver->resolve($from, $store);
+-        $this->message->setFrom($result['email'], $result['name']);
++        $this->message->setFromAddress($result['email'], $result['name']);
+
+         return $this;
+     }
+diff --git a/Mail/Test/Unit/Template/TransportBuilderByStoreTest.php b/Mail/Test/Unit/Template/TransportBuilderByStoreTest.php
+index 80df2887a3a9..a28dbcd291ba 100644
+--- a/Mail/Test/Unit/Template/TransportBuilderByStoreTest.php
++++ b/Mail/Test/Unit/Template/TransportBuilderByStoreTest.php
+@@ -55,8 +55,8 @@ public function testSetFromByStore()
+             ->with($sender, $store)
+             ->willReturn($sender);
+         $this->messageMock->expects($this->once())
+-            ->method('setFrom')
+-            ->with('from@example.com', 'name')
++            ->method('setFromAddress')
++            ->with($sender['email'], $sender['name'])
+             ->willReturnSelf();
+
+         $this->model->setFromByStore($sender, $store);
+diff --git a/Mail/Test/Unit/Template/TransportBuilderTest.php b/Mail/Test/Unit/Template/TransportBuilderTest.php
+index 596640480c82..b476eecd7f59 100644
+--- a/Mail/Test/Unit/Template/TransportBuilderTest.php
++++ b/Mail/Test/Unit/Template/TransportBuilderTest.php
+@@ -167,19 +167,20 @@ public function getTransportDataProvider()
+     /**
+      * @return void
+      */
+-    public function testSetFrom()
++    public function testSetFromByStore()
+     {
+         $sender = ['email' => 'from@example.com', 'name' => 'name'];
++        $store = 1;
+         $this->senderResolverMock->expects($this->once())
+             ->method('resolve')
+-            ->with($sender)
++            ->with($sender, $store)
+             ->willReturn($sender);
+         $this->messageMock->expects($this->once())
+-            ->method('setFrom')
+-            ->with('from@example.com', 'name')
++            ->method('setFromAddress')
++            ->with($sender['email'], $sender['name'])
+             ->willReturnSelf();
+
+-        $this->builder->setFrom($sender);
++        $this->builder->setFromByStore($sender, $store);
+     }
+
+     /**

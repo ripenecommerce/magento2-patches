@@ -1,0 +1,149 @@
+diff --git a/Model/Order/Email/SenderBuilder.php b/Model/Order/Email/SenderBuilder.php
+index 7ec089b88297..a7d749ec04c7 100644
+--- a/Model/Order/Email/SenderBuilder.php
++++ b/Model/Order/Email/SenderBuilder.php
+@@ -5,12 +5,14 @@
+  */
+ namespace Magento\Sales\Model\Order\Email;
+
+-use Magento\Framework\App\ObjectManager;
+ use Magento\Framework\Mail\Template\TransportBuilder;
+ use Magento\Framework\Mail\Template\TransportBuilderByStore;
+ use Magento\Sales\Model\Order\Email\Container\IdentityInterface;
+ use Magento\Sales\Model\Order\Email\Container\Template;
+
++/**
++ * Sender Builder
++ */
+ class SenderBuilder
+ {
+     /**
+@@ -29,11 +31,8 @@ class SenderBuilder
+     protected $transportBuilder;
+
+     /**
+-     * @var TransportBuilderByStore
+-     */
+-    private $transportBuilderByStore;
+-
+-    /**
++     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
++     *
+      * @param Template $templateContainer
+      * @param IdentityInterface $identityContainer
+      * @param TransportBuilder $transportBuilder
+@@ -48,9 +47,6 @@ public function __construct(
+         $this->templateContainer = $templateContainer;
+         $this->identityContainer = $identityContainer;
+         $this->transportBuilder = $transportBuilder;
+-        $this->transportBuilderByStore = $transportBuilderByStore ?: ObjectManager::getInstance()->get(
+-            TransportBuilderByStore::class
+-        );
+     }
+
+     /**
+@@ -110,7 +106,7 @@ protected function configureEmailTemplate()
+         $this->transportBuilder->setTemplateIdentifier($this->templateContainer->getTemplateId());
+         $this->transportBuilder->setTemplateOptions($this->templateContainer->getTemplateOptions());
+         $this->transportBuilder->setTemplateVars($this->templateContainer->getTemplateVars());
+-        $this->transportBuilderByStore->setFromByStore(
++        $this->transportBuilder->setFromByStore(
+             $this->identityContainer->getEmailIdentity(),
+             $this->identityContainer->getStore()->getId()
+         );
+diff --git a/Test/Unit/Model/Order/Email/SenderBuilderTest.php b/Test/Unit/Model/Order/Email/SenderBuilderTest.php
+index 38209bb22aef..759d60d9e661 100644
+--- a/Test/Unit/Model/Order/Email/SenderBuilderTest.php
++++ b/Test/Unit/Model/Order/Email/SenderBuilderTest.php
+@@ -6,7 +6,6 @@
+
+ namespace Magento\Sales\Test\Unit\Model\Order\Email;
+
+-use Magento\Framework\Mail\Template\TransportBuilderByStore;
+ use Magento\Sales\Model\Order\Email\SenderBuilder;
+
+ class SenderBuilderTest extends \PHPUnit\Framework\TestCase
+@@ -36,11 +35,6 @@ class SenderBuilderTest extends \PHPUnit\Framework\TestCase
+      */
+     private $storeMock;
+
+-    /**
+-     * @var \PHPUnit_Framework_MockObject_MockObject
+-     */
+-    private $transportBuilderByStore;
+-
+     protected function setUp()
+     {
+         $templateId = 'test_template_id';
+@@ -82,11 +76,10 @@ protected function setUp()
+                 'setTemplateIdentifier',
+                 'setTemplateOptions',
+                 'setTemplateVars',
++                'setFromByStore',
+             ]
+         );
+
+-        $this->transportBuilderByStore = $this->createMock(TransportBuilderByStore::class);
+-
+         $this->templateContainerMock->expects($this->once())
+             ->method('getTemplateId')
+             ->will($this->returnValue($templateId));
+@@ -109,9 +102,9 @@ protected function setUp()
+         $this->identityContainerMock->expects($this->once())
+             ->method('getEmailIdentity')
+             ->will($this->returnValue($emailIdentity));
+-        $this->transportBuilderByStore->expects($this->once())
++        $this->transportBuilder->expects($this->once())
+             ->method('setFromByStore')
+-            ->with($this->equalTo($emailIdentity));
++            ->with($this->equalTo($emailIdentity), 1);
+
+         $this->identityContainerMock->expects($this->once())
+             ->method('getEmailCopyTo')
+@@ -120,8 +113,7 @@ protected function setUp()
+         $this->senderBuilder = new SenderBuilder(
+             $this->templateContainerMock,
+             $this->identityContainerMock,
+-            $this->transportBuilder,
+-            $this->transportBuilderByStore
++            $this->transportBuilder
+         );
+     }
+
+@@ -129,6 +121,8 @@ public function testSend()
+     {
+         $customerName = 'test_name';
+         $customerEmail = 'test_email';
++        $identity = 'email_identity_test';
++
+         $transportMock = $this->createMock(
+             \Magento\Sales\Test\Unit\Model\Order\Email\Stub\TransportInterfaceMock::class
+         );
+@@ -151,6 +145,9 @@ public function testSend()
+         $this->storeMock->expects($this->once())
+             ->method('getId')
+             ->willReturn(1);
++        $this->transportBuilder->expects($this->once())
++            ->method('setFromByStore')
++            ->with($identity, 1);
+         $this->transportBuilder->expects($this->once())
+             ->method('addTo')
+             ->with($this->equalTo($customerEmail), $this->equalTo($customerName));
+@@ -164,6 +161,7 @@ public function testSend()
+
+     public function testSendCopyTo()
+     {
++        $identity = 'email_identity_test';
+         $transportMock = $this->createMock(
+             \Magento\Sales\Test\Unit\Model\Order\Email\Stub\TransportInterfaceMock::class
+         );
+@@ -177,6 +175,9 @@ public function testSendCopyTo()
+         $this->transportBuilder->expects($this->once())
+             ->method('addTo')
+             ->with($this->equalTo('example@mail.com'));
++        $this->transportBuilder->expects($this->once())
++            ->method('setFromByStore')
++            ->with($identity, 1);
+         $this->identityContainerMock->expects($this->once())
+             ->method('getStore')
+             ->willReturn($this->storeMock);
